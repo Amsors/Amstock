@@ -11,7 +11,7 @@ const emit = defineEmits<{ close: []; saved: [element: StockElement]; continued:
 const form = reactive({
   kind: props.element?.kind ?? 'item', tag_a: props.element?.tag_a ?? '',
   tag_b: props.element ? String(props.element.tag_b).padStart(2, '0') : '',
-  tag_c: props.element ? String(props.element.tag_c).padStart(2, '0') : '',
+  tag_c: props.element ? String(props.element.tag_c).padStart(2, '0') : '00',
   name: props.element?.name ?? '', description: props.element?.description ?? '', quantity: props.element?.quantity ?? 1,
   unit: props.element?.unit ?? '', parent: props.element?.parent_serial == null ? '' : String(props.element.parent_serial).padStart(6, '0'),
 })
@@ -63,7 +63,10 @@ async function loadMnemonics() {
   if (!/^[A-Z]$/.test(form.tag_a)) { mnemonics.value = []; return }
   try { mnemonics.value = await api.mnemonics(form.tag_a) } catch { mnemonics.value = [] }
 }
-watch(() => form.tag_a, () => { void loadMnemonics() })
+watch(() => form.tag_a, () => {
+  if (!props.element && form.tag_a) form.tag_b = '00'
+  void loadMnemonics()
+})
 watch(continueCcBehavior, value => {
   document.cookie = `amstock_continue_cc=${value}; Max-Age=31536000; Path=/; SameSite=Lax`
 })

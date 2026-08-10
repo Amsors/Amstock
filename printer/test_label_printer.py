@@ -22,6 +22,7 @@ from label_printer import (
     make_qr,
     mm_to_dots,
     parse_label_request,
+    prepare_print_image,
     render_label,
     render_request,
     save_preview,
@@ -83,6 +84,28 @@ class LabelPrinterTests(unittest.TestCase):
             render_label(request.identifier, request.kind).tobytes(),
             render_request(request).tobytes(),
         )
+
+    def test_physical_print_has_no_software_top_margin(self) -> None:
+        for style, name in (("A1", ""), ("A2", "测试物品")):
+            with self.subTest(style=style):
+                preview = render_request(
+                    LabelRequest(
+                        style=style,
+                        kind="item",
+                        identifier="M-01-85-862390",
+                        name=name,
+                    )
+                )
+                print_image = prepare_print_image(preview)
+                ink_bounds = Image.eval(
+                    print_image.convert("L"), lambda value: 255 - value
+                ).getbbox()
+
+                self.assertIsNotNone(ink_bounds)
+                assert ink_bounds is not None
+                self.assertEqual(0, ink_bounds[1])
+                self.assertEqual(preview.width, print_image.width)
+                self.assertLess(print_image.height, preview.height)
 
     def test_qr_symbol_uses_most_of_the_unchanged_a1_height(self) -> None:
         qr = make_qr("M-01-85-862390", mm_to_dots(20) - 4)

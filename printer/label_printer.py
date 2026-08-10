@@ -15,7 +15,7 @@ from typing import Any, Mapping, Sequence
 
 import qrcode
 from escpos.printer import Network
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 
 DEFAULT_HOST = "192.168.31.114"
@@ -509,8 +509,8 @@ def render_request(request: LabelRequest) -> Image.Image:
         elif request.style == "B2":
             _draw_b2_children(canvas, request.children, base_height)
 
-    # ESC/POS is a one-bit device. Explicit conversion keeps preview and print
-    # output identical and avoids grey antialiasing surprises.
+    # ESC/POS is a one-bit device. Explicit conversion avoids grey
+    # antialiasing surprises in both preview and print output.
     return canvas.convert("1", dither=Image.Dither.NONE)
 
 
@@ -569,6 +569,25 @@ def check_connection(host: str, port: int, timeout: float) -> None:
         pass
 
 
+def prepare_print_image(image: Image.Image) -> Image.Image:
+    """Remove every fully blank row before the first printed pixel.
+
+    The target printer unavoidably leaves about 13 mm of paper above the
+    raster image.  Keeping the renderer's own leading whitespace would add a
+    second top margin to that hardware margin.  Previews retain their standard
+    dimensions; only the raster sent to the physical printer is trimmed.
+
+    The hardware margin is considerably larger than the QR quiet-zone
+    requirement, so it safely replaces the whitespace removed above an A1 QR
+    code.  Horizontal whitespace is deliberately left untouched.
+    """
+    grayscale = image.convert("L")
+    ink_bounds = ImageChops.invert(grayscale).getbbox()
+    if ink_bounds is None or ink_bounds[1] == 0:
+        return image
+    return image.crop((0, ink_bounds[1], image.width, image.height))
+
+
 def print_label(
     image: Image.Image,
     host: str,
@@ -587,7 +606,7 @@ def print_label(
             timeout=timeout,
             profile="TM-T20II",
         )
-        printer.image(image, impl="bitImageRaster")
+        printer.image(prepare_print_image(image), impl="bitImageRaster")
         if cut:
             # feed=False avoids python-escpos's additional six-line feed. The
             # Epson feed-and-partial-cut command still advances to the cutter.
