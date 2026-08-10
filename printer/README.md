@@ -1,7 +1,7 @@
 # Epson TM-T82III 标签渲染与打印验证
 
-此目录是独立的 Python 验证程序，目前不接入 Amstock 前端或 Rust 后端。Python
-只负责把后端已经准备好的文本绘制成 ESC/POS 栅格图像；它不读取项目数据库，
+此目录包含由 Amstock Rust 后端调用的 Python 标签渲染与打印模块。Python 只负责
+把后端已经准备好的文本绘制成 ESC/POS 栅格图像，不读取项目数据库，
 不解析编号，不展开容器层级，也不对子项进行排序。
 
 目标打印机为 Epson TM-T82III（203 dpi），纸宽 75 mm。程序使用打印机的
@@ -30,7 +30,7 @@ B1 子项区约为 `1.25 mm + ceil(子项数 / 2) × 3.75 mm`；B2 子项区约�
 B1/B2 的 `children` 可以是直接子项，也可以是 Rust 后端递归展开后的全部后代；
 渲染器不理解两者的区别。最终显示内容及顺序完全以数组为准。
 
-## JSON 交互契约（版本 1）
+## JSON 交互契约
 
 请求是一个 UTF-8 JSON 对象：
 
@@ -77,6 +77,22 @@ B1/B2 的 `children` 可以是直接子项，也可以是 Rust 后端递归展�
   严格校验。
 
 可直接使用 [examples](examples) 中的四份示例请求。
+
+## Rust 调用入口
+
+`amstock_printer.py` 是面向后端的稳定单次调用接口。它从 stdin 读取一份上述 JSON，
+以退出码表示成功或失败，并只在 stdout 输出一份 JSON 结果；错误诊断写入 stderr。
+
+```bash
+cat examples/b2.json | .venv/bin/python amstock_printer.py \
+  --mode preview --output-dir output --no-open
+
+cat examples/a1.json | .venv/bin/python amstock_printer.py \
+  --mode printer --host 192.168.31.114 --port 9100
+```
+
+`preview` 会保存 PNG，并在未指定 `--no-open` 时调用系统看图程序；`printer` 会连接
+真实打印机。Rust 后端启动参数负责选择这两种模式。
 
 ## 环境
 

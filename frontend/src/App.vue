@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { api } from './api'
+import { useToast } from './composables/useToast'
 import type { StockElement } from './types'
 import DeleteDialog from './components/DeleteDialog.vue'
 import ElementCard from './components/ElementCard.vue'
 import ElementForm from './components/ElementForm.vue'
 import MappingManager from './components/MappingManager.vue'
 import TreeView from './components/TreeView.vue'
+import ToastNotice from './components/ToastNotice.vue'
 
 type Page = 'home' | 'tree' | 'mappings'
 const page = ref<Page>('home')
@@ -20,6 +22,7 @@ const formOpen = ref(false)
 const deleting = ref<StockElement | null>(null)
 let searchTimer = 0
 let formNeedsRefresh = false
+const { toastMessage, showToast } = useToast()
 
 async function search() {
   loading.value = true; error.value = ''
@@ -72,7 +75,8 @@ function selectFromTree(element: StockElement) { page.value = 'home'; query.valu
       <MappingManager v-else />
     </main>
 
-    <ElementForm v-if="formOpen" :element="formElement" @close="closeForm" @saved="saved" @continued="continued" />
+    <ElementForm v-if="formOpen" :element="formElement" @close="closeForm" @saved="saved" @continued="continued" @notice="showToast" />
     <DeleteDialog v-if="deleting" :element="deleting" @close="deleting = null" @deleted="deleting = null; search()" />
+    <ToastNotice :message="toastMessage" />
   </div>
 </template>

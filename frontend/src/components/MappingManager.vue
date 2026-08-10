@@ -67,7 +67,7 @@ onMounted(() => action(() => loadCategories(), false))
         <form class="inline-form" @submit.prevent="addCategory"><input v-model="newTag" class="short-code" required maxlength="1" pattern="[A-Za-z]" placeholder="字母" /><input v-model="newCategoryName" placeholder="名称（可留空）" /><button class="button primary small">添加</button></form>
         <div class="mapping-list">
           <div v-for="category in categories" :key="category.tag_a" class="mapping-row" :class="{ selected: selected === category.tag_a }" @click="selectCategory(category.tag_a)">
-            <code>{{ category.tag_a }}</code><input v-model="category.name" placeholder="未命名" @click.stop /><button class="text-button" @click.stop="saveCategory(category)">保存</button><button class="text-button danger-text" @click.stop="removeCategory(category)">删除</button>
+            <code>{{ category.tag_a }}</code><input v-model="category.name" placeholder="未命名" @focus="selectCategory(category.tag_a)" @click.stop /><button class="text-button" @click.stop="saveCategory(category)">保存</button><button class="text-button danger-text" @click.stop="removeCategory(category)">删除</button>
           </div>
           <p v-if="!categories.length" class="empty-state compact">暂无类别标记</p>
         </div>

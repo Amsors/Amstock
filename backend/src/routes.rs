@@ -16,6 +16,7 @@ use crate::{
     AppState,
     error::{AppError, Result},
     models::*,
+    printing::{self, LabelStyle, PrintOutput},
     validation::{normalized_tag_a, validate_element},
 };
 
@@ -27,6 +28,7 @@ pub fn router() -> Router<AppState> {
             get(get_element).put(update_element).delete(remove_element),
         )
         .route("/elements/{serial}/restore", post(restore_element))
+        .route("/elements/{serial}/print", post(print_element_label))
         .route("/elements/{serial}/delete-preview", get(delete_preview))
         .route(
             "/elements/{serial}/image",
@@ -46,6 +48,35 @@ pub fn router() -> Router<AppState> {
             "/mappings/categories/{tag_a}/mnemonics/{tag_b}",
             put(put_mnemonic).delete(delete_mnemonic),
         )
+}
+
+async fn print_element_label(
+    State(state): State<AppState>,
+    Path(serial): Path<i64>,
+    Json(request): Json<PrintRequest>,
+) -> Result<Json<PrintOutput>> {
+    let element = fetch_element(&state.pool, serial).await?;
+    if element.deleted_at.is_some() {
+        return Err(AppError::Conflict("不能打印已删除元素的标签".into()));
+    }
+    if matches!(request.style, LabelStyle::B1 | LabelStyle::B2) && element.kind != "container" {
+        return Err(AppError::BadRequest("B1、B2 标签仅适用于容器".into()));
+    }
+
+    let mut children = if request.style.includes_children() {
+        sqlx::query_as::<_, Element>(
+            "SELECT * FROM elements WHERE parent_serial=? AND deleted_at IS NULL",
+        )
+        .bind(serial)
+        .fetch_all(&state.pool)
+        .await?
+    } else {
+        Vec::new()
+    };
+    printing::sort_children(&mut children);
+    Ok(Json(
+        printing::print(&state.print_config, &element, request.style, &children).await?,
+    ))
 }
 
 fn view(element: Element) -> ElementView {

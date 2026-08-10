@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { StockElement } from '../types'
+import LabelPrintButtons from './LabelPrintButtons.vue'
 
 defineProps<{ element: StockElement }>()
 defineEmits<{ edit: [element: StockElement]; remove: [element: StockElement]; restore: [element: StockElement] }>()
@@ -23,9 +24,12 @@ defineEmits<{ edit: [element: StockElement]; remove: [element: StockElement]; re
       </p>
     </div>
     <div class="card-actions">
-      <button v-if="!element.deleted_at" class="button ghost small" @click="$emit('edit', element)">编辑</button>
-      <button v-if="!element.deleted_at" class="button danger-ghost small" @click="$emit('remove', element)">移除</button>
-      <button v-else class="button small" @click="$emit('restore', element)">恢复</button>
+      <LabelPrintButtons v-if="!element.deleted_at" :element="element" />
+      <div class="management-actions">
+        <button v-if="!element.deleted_at" class="button ghost small" @click="$emit('edit', element)">编辑</button>
+        <button v-if="!element.deleted_at" class="button danger-ghost small" @click="$emit('remove', element)">移除</button>
+        <button v-else class="button small" @click="$emit('restore', element)">恢复</button>
+      </div>
     </div>
   </article>
 </template>

@@ -1,4 +1,4 @@
-import type { CategoryMapping, DeletePreview, ElementInput, MnemonicMapping, StockElement, TreeNode } from './types'
+import type { CategoryMapping, DeletePreview, ElementInput, LabelStyle, MnemonicMapping, PrintResult, StockElement, TreeNode } from './types'
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init)
@@ -22,6 +22,7 @@ export const api = {
   create: (data: ElementInput) => request<StockElement>('/api/elements', json('POST', data)),
   update: (serial: number, data: ElementInput) => request<StockElement>(`/api/elements/${serial}`, json('PUT', data)),
   restore: (serial: number) => request<StockElement>(`/api/elements/${serial}/restore`, json('POST')),
+  printLabel: (serial: number, style: LabelStyle) => request<PrintResult>(`/api/elements/${serial}/print`, json('POST', { style })),
   remove: (serial: number, mode?: string, target_serial?: number) =>
     request<{ deleted: number }>(`/api/elements/${serial}`, json('DELETE', { mode, target_serial })),
   deletePreview: (serial: number) => request<DeletePreview[]>(`/api/elements/${serial}/delete-preview`),

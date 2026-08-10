@@ -17,6 +17,8 @@ pub enum AppError {
     Database(#[from] sqlx::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error("{0}")]
+    Printer(String),
 }
 
 #[derive(Serialize)]
@@ -31,6 +33,7 @@ impl IntoResponse for AppError {
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Conflict(_) => StatusCode::CONFLICT,
             Self::Database(_) | Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Printer(_) => StatusCode::BAD_GATEWAY,
         };
         if status.is_server_error() {
             tracing::error!(error = ?self, "request failed");

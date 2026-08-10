@@ -1,6 +1,10 @@
 import unittest
+import argparse
+import io
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from escpos.printer import Dummy
 from PIL import Image, ImageDraw, ImageFont
@@ -22,9 +26,37 @@ from label_printer import (
     render_request,
     save_preview,
 )
+from amstock_printer import run
 
 
 class LabelPrinterTests(unittest.TestCase):
+    def test_rust_bridge_reads_stdin_and_returns_machine_readable_preview(self) -> None:
+        payload = {
+            "schema_version": 1,
+            "style": "A2",
+            "kind": "item",
+            "identifier": "M-01-85-862390",
+            "name": "测试物品",
+        }
+        with TemporaryDirectory() as directory, patch(
+            "sys.stdin", io.StringIO(json.dumps(payload))
+        ):
+            result = run(
+                argparse.Namespace(
+                    mode="preview",
+                    output_dir=Path(directory),
+                    host="127.0.0.1",
+                    port=9100,
+                    timeout=1,
+                    no_open=True,
+                    no_cut=False,
+                )
+            )
+
+            self.assertEqual("preview", result["mode"])
+            self.assertEqual("A2", result["style"])
+            self.assertTrue(Path(result["output"]).is_file())
+
     def test_20_mm_label_dimensions_and_monochrome_mode(self) -> None:
         label = render_label("M-01-85-862390", "item")
 

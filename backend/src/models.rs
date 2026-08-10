@@ -118,3 +118,8 @@ pub struct SearchQuery {
     pub q: Option<String>,
     pub include_deleted: Option<bool>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct PrintRequest {
+    pub style: crate::printing::LabelStyle,
+}

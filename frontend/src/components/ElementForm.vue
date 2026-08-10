@@ -6,7 +6,7 @@ import type { CategoryMapping, ElementInput, MnemonicMapping, StockElement } fro
 import ToastNotice from './ToastNotice.vue'
 
 const props = defineProps<{ element?: StockElement }>()
-const emit = defineEmits<{ close: []; saved: [element: StockElement]; continued: [element: StockElement] }>()
+const emit = defineEmits<{ close: []; saved: [element: StockElement]; continued: [element: StockElement]; notice: [message: string] }>()
 
 const form = reactive({
   kind: props.element?.kind ?? 'item', tag_a: props.element?.tag_a ?? '',
@@ -43,11 +43,17 @@ const mnemonicOptions = computed(() => {
   }))
 })
 type ContinueCcBehavior = 'keep' | 'reset' | 'increment'
+type PrintAfterSave = 'none' | 'A1' | 'A2'
 function readContinueCcBehavior(): ContinueCcBehavior {
   const value = document.cookie.split('; ').find(row => row.startsWith('amstock_continue_cc='))?.split('=')[1]
   return value === 'keep' || value === 'reset' || value === 'increment' ? value : 'increment'
 }
 const continueCcBehavior = ref<ContinueCcBehavior>(readContinueCcBehavior())
+function readPrintAfterSave(): PrintAfterSave {
+  const value = document.cookie.split('; ').find(row => row.startsWith('amstock_print_after_save='))?.split('=')[1]
+  return value === 'A1' || value === 'A2' || value === 'none' ? value : 'none'
+}
+const printAfterSave = ref<PrintAfterSave>(readPrintAfterSave())
 const { toastMessage, showToast } = useToast()
 let parentSearchTimer = 0
 let parentSearchSequence = 0
@@ -60,6 +66,9 @@ async function loadMnemonics() {
 watch(() => form.tag_a, () => { void loadMnemonics() })
 watch(continueCcBehavior, value => {
   document.cookie = `amstock_continue_cc=${value}; Max-Age=31536000; Path=/; SameSite=Lax`
+})
+watch(printAfterSave, value => {
+  document.cookie = `amstock_print_after_save=${value}; Max-Age=31536000; Path=/; SameSite=Lax`
 })
 watch(() => form.parent, (value) => {
   window.clearTimeout(parentSearchTimer)
@@ -115,7 +124,7 @@ function selectParent(container: StockElement) {
   parentFocused.value = false
 }
 
-async function resetForNext(saved: StockElement) {
+async function resetForNext(saved: StockElement, printNotice = '') {
   if (continueCcBehavior.value === 'reset') form.tag_c = '00'
   if (continueCcBehavior.value === 'increment') form.tag_c = String((Number(form.tag_c) + 1) % 100).padStart(2, '0')
   form.name = ''
@@ -127,7 +136,7 @@ async function resetForNext(saved: StockElement) {
   image.value = null
   if (fileInput.value) fileInput.value.value = ''
   removeExistingImage.value = false
-  showToast(`已添加 ${saved.code}，可以继续录入下一条。`)
+  showToast(`已添加 ${saved.code}，可以继续录入下一条。${printNotice ? ` ${printNotice}` : ''}`)
   await nextTick()
   nameInput.value?.focus()
 }
@@ -148,10 +157,20 @@ async function submit(continueAdding = false) {
     if (removeExistingImage.value && props.element?.has_image) await api.deleteImage(saved.serial)
     if (image.value) await api.uploadImage(saved.serial, image.value)
     const savedView = { ...saved, has_image: image.value ? true : removeExistingImage.value ? false : saved.has_image, updated_at: new Date().toISOString() }
+    let printNotice = ''
+    if (!props.element && printAfterSave.value !== 'none') {
+      try {
+        const result = await api.printLabel(saved.serial, printAfterSave.value)
+        printNotice = result.mode === 'preview' ? `${printAfterSave.value} 标签预览已生成并打开。` : `${printAfterSave.value} 标签已发送到打印机。`
+      } catch (printError) {
+        printNotice = `打印失败：${(printError as Error).message}`
+      }
+    }
     if (continueAdding && !props.element) {
       emit('continued', savedView)
-      await resetForNext(savedView)
+      await resetForNext(savedView, printNotice)
     } else {
+      if (printNotice) emit('notice', printNotice.startsWith('打印失败') ? `条目 ${saved.code} 已保存，但${printNotice}` : printNotice)
       emit('saved', savedView)
     }
   } catch (e) { error.value = (e as Error).message }
@@ -183,7 +202,10 @@ async function submit(continueAdding = false) {
         <div><label class="button ghost file-button">选择图片<input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="image = ($event.target as HTMLInputElement).files?.[0] || null" /></label><button v-if="element?.has_image && !image" type="button" class="button danger-ghost" @click="removeExistingImage = !removeExistingImage">{{ removeExistingImage ? '保留原图' : '移除原图' }}</button><p class="hint">JPEG / PNG / WebP / GIF，图片仅作小尺寸预览</p></div>
       </section>
       <p v-if="error" class="error-message">{{ error }}</p>
-      <label v-if="!element" class="continue-setting">继续添加后 CC<select v-model="continueCcBehavior"><option value="keep">保留当前值</option><option value="reset">清零为 00</option><option value="increment">自增 1（99 后回到 00）</option></select></label>
+      <div v-if="!element" class="form-settings">
+        <label class="continue-setting">继续添加后 CC<select v-model="continueCcBehavior"><option value="keep">保留当前值</option><option value="reset">清零为 00</option><option value="increment">自增 1（99 后回到 00）</option></select></label>
+        <label class="continue-setting">保存后打印<select v-model="printAfterSave"><option value="none">不打印</option><option value="A1">打印 A1 标签</option><option value="A2">打印 A2 标签</option></select></label>
+      </div>
       <div class="modal-actions"><button type="button" class="button ghost" @click="$emit('close')">取消</button><button v-if="!element" type="button" class="button ghost continue-button" :disabled="busy" @click="submit(true)">{{ busy ? '保存中…' : '继续添加' }}</button><button class="button primary" :disabled="busy">{{ busy ? '保存中…' : '保存条目' }}</button></div>
       <ToastNotice :message="toastMessage" />
     </form>

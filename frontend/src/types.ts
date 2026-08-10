@@ -1,4 +1,5 @@
 export type ElementKind = 'item' | 'container'
+export type LabelStyle = 'A1' | 'A2' | 'B1' | 'B2'
 
 export interface StockElement {
   serial: number
@@ -28,3 +29,10 @@ export interface TreeNode extends StockElement { children: TreeNode[] }
 export interface CategoryMapping { tag_a: string; name: string | null }
 export interface MnemonicMapping { tag_a: string; tag_b: number; name: string | null }
 export interface DeletePreview extends StockElement { depth: number }
+export interface PrintResult {
+  schema_version: number
+  mode: 'preview' | 'printer'
+  style: LabelStyle
+  identifier: string
+  output?: string
+}

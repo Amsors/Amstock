@@ -1,5 +1,6 @@
 mod error;
 mod models;
+mod printing;
 mod routes;
 mod validation;
 
@@ -8,6 +9,7 @@ use axum::{
     http::{HeaderValue, Method},
     routing::get,
 };
+use printing::{PrintConfig, PrintMode};
 use sqlx::{
     SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
@@ -20,10 +22,99 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 pub struct AppState {
     pool: SqlitePool,
     image_dir: PathBuf,
+    print_config: PrintConfig,
+}
+
+#[derive(Debug)]
+struct Args {
+    print_mode: PrintMode,
+    printer_python: Option<PathBuf>,
+    printer_script: Option<PathBuf>,
+    label_preview_dir: Option<PathBuf>,
+    printer_host: String,
+    printer_port: u16,
+    printer_timeout: f64,
+    no_open_label_preview: bool,
+    printer_no_cut: bool,
+}
+
+impl Args {
+    fn help() -> &'static str {
+        "Amstock 家用物资管理后端\n\n\
+         标签选项：\n\
+           --print-mode <preview|printer>   生成并打开 PNG，或连接真实打印机\n\
+           --printer-python <PATH>          Python 解释器路径\n\
+           --printer-script <PATH>          Rust/Python 桥接脚本路径\n\
+           --label-preview-dir <PATH>       PNG 输出目录\n\
+           --printer-host <HOST>            打印机地址（默认 192.168.31.114）\n\
+           --printer-port <PORT>            打印机端口（默认 9100）\n\
+           --printer-timeout <SECONDS>      网络超时（默认 3）\n\
+           --no-open-label-preview          生成预览但不调用系统看图程序\n\
+           --printer-no-cut                 真实打印后不切纸\n"
+    }
+
+    fn parse() -> std::result::Result<Self, String> {
+        let mut parsed = Self {
+            print_mode: PrintMode::Preview,
+            printer_python: None,
+            printer_script: None,
+            label_preview_dir: None,
+            printer_host: "192.168.31.114".into(),
+            printer_port: 9100,
+            printer_timeout: 3.0,
+            no_open_label_preview: false,
+            printer_no_cut: false,
+        };
+        let mut arguments = env::args().skip(1);
+        while let Some(argument) = arguments.next() {
+            let mut value = || {
+                arguments
+                    .next()
+                    .ok_or_else(|| format!("{argument} 缺少参数值"))
+            };
+            match argument.as_str() {
+                "--help" | "-h" => {
+                    print!("{}", Self::help());
+                    std::process::exit(0);
+                }
+                "--version" | "-V" => {
+                    println!(env!("CARGO_PKG_VERSION"));
+                    std::process::exit(0);
+                }
+                "--print-mode" => parsed.print_mode = value()?.parse()?,
+                "--printer-python" => parsed.printer_python = Some(value()?.into()),
+                "--printer-script" => parsed.printer_script = Some(value()?.into()),
+                "--label-preview-dir" => parsed.label_preview_dir = Some(value()?.into()),
+                "--printer-host" => parsed.printer_host = value()?,
+                "--printer-port" => {
+                    parsed.printer_port = value()?
+                        .parse()
+                        .map_err(|_| "--printer-port 必须是 1–65535 的整数".to_string())?
+                }
+                "--printer-timeout" => {
+                    parsed.printer_timeout = value()?
+                        .parse()
+                        .map_err(|_| "--printer-timeout 必须是秒数".to_string())?
+                }
+                "--no-open-label-preview" => parsed.no_open_label_preview = true,
+                "--printer-no-cut" => parsed.printer_no_cut = true,
+                _ => return Err(format!("未知启动参数：{argument}\n\n{}", Self::help())),
+            }
+        }
+        if !parsed.printer_timeout.is_finite() || parsed.printer_timeout <= 0.0 {
+            return Err("--printer-timeout 必须大于 0".into());
+        }
+        if parsed.printer_port == 0 {
+            return Err("--printer-port 必须是 1–65535 的整数".into());
+        }
+        Ok(parsed)
+    }
 }
 
 #[tokio::main]
 async fn main() -> anyhow_main::Result<()> {
+    let args = Args::parse()
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error))?;
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -54,7 +145,33 @@ async fn main() -> anyhow_main::Result<()> {
         .execute(&pool)
         .await?;
 
-    let state = AppState { pool, image_dir };
+    let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("backend directory must have a parent")
+        .to_path_buf();
+    let print_config = PrintConfig {
+        mode: args.print_mode,
+        python: args
+            .printer_python
+            .unwrap_or_else(|| project_root.join("printer/.venv/bin/python")),
+        script: args
+            .printer_script
+            .unwrap_or_else(|| project_root.join("printer/amstock_printer.py")),
+        output_dir: args
+            .label_preview_dir
+            .unwrap_or_else(|| project_root.join("backend/data/label-previews")),
+        host: args.printer_host,
+        port: args.printer_port,
+        timeout: args.printer_timeout,
+        open_preview: !args.no_open_label_preview,
+        cut: !args.printer_no_cut,
+    };
+    tracing::info!(mode = %print_config.mode, "label printing configured");
+    let state = AppState {
+        pool,
+        image_dir,
+        print_config,
+    };
     let api = routes::router();
     let app = Router::new()
         .route("/api/health", get(|| async { "ok" }))

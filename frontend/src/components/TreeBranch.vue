@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { TreeNode } from '../types'
+import LabelPrintButtons from './LabelPrintButtons.vue'
 
 defineProps<{ node: TreeNode; depth?: number }>()
 defineEmits<{ select: [node: TreeNode] }>()
@@ -17,6 +18,7 @@ const open = ref(true)
         <span><strong>{{ node.name }}</strong><code>{{ node.code }}</code></span>
         <span class="tree-quantity">{{ node.quantity }} {{ node.unit }}</span>
       </button>
+      <LabelPrintButtons :element="node" />
     </div>
     <ul v-if="open && node.children.length">
       <TreeBranch v-for="child in node.children" :key="child.serial" :node="child" :depth="(depth || 0) + 1" @select="$emit('select', $event)" />

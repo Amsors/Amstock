@@ -97,11 +97,18 @@ cd frontend
 npm install
 ```
 
-启动后端：
+启动后端（默认使用标签预览模式：生成 PNG 并调用系统看图程序打开）：
 
 ```bash
 cd backend
 cargo run
+```
+
+要连接真实打印机，将启动模式改为 `printer`：
+
+```bash
+cd backend
+cargo run -- --print-mode printer --printer-host 192.168.31.114
 ```
 
 另开一个终端启动前端：
@@ -127,6 +134,26 @@ npm run dev
 | `AMSTOCK_DATABASE_URL` | `sqlite://data/amstock.db` | SQLite 连接地址 |
 | `AMSTOCK_IMAGE_DIR` | `data/images` | 图片文件目录 |
 | `AMSTOCK_BIND` | `127.0.0.1:3000` | 后端监听地址 |
+
+### 标签打印配置
+
+后端通过 `printer/amstock_printer.py` 的 stdin/stdout JSON 接口调用 Python。Python
+虚拟环境尚未创建时，先按 `printer/README.md` 安装依赖。后端支持以下启动参数：
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--print-mode` | `preview` | `preview` 生成并打开 PNG；`printer` 连接真实打印机 |
+| `--printer-python` | `printer/.venv/bin/python` | Python 解释器路径 |
+| `--printer-script` | `printer/amstock_printer.py` | Python 桥接脚本路径 |
+| `--label-preview-dir` | `backend/data/label-previews` | 预览 PNG 输出目录 |
+| `--no-open-label-preview` | 关闭 | 只生成预览图，不调用系统看图程序 |
+| `--printer-host` | `192.168.31.114` | 打印机 IP 或主机名 |
+| `--printer-port` | `9100` | RAW TCP 端口 |
+| `--printer-timeout` | `3` | 打印机连接超时秒数 |
+| `--printer-no-cut` | 关闭 | 打印后不切纸 |
+
+B1/B2 使用容器的未删除直接子级。Rust 在调用 Python 前按完整编号的类别字母、
+BB、CC 和六位序列号依次升序排列；Python 保持传入顺序渲染。
 
 项目不包含数据库迁移流程。开发阶段修改表结构后，可以在确认旧数据不再需要时删除 `backend/data/amstock.db`，后端下次启动会按 `backend/src/schema.sql` 创建新数据库。
 
