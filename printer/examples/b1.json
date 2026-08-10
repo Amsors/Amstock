@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "style": "B1",
+  "kind": "container",
+  "identifier": "C-02-10-000128",
+  "name": "电子元件一号收纳箱",
+  "children": [
+    { "identifier": "R-01-01-000129" },
+    { "identifier": "R-01-02-000130" },
+    { "identifier": "C-02-11-000131" },
+    { "identifier": "T-04-00-000132" },
+    { "identifier": "W-03-08-000133" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "style": "B2",
+  "kind": "container",
+  "identifier": "C-02-10-000128",
+  "name": "电子元件一号收纳箱",
+  "children": [
+    { "identifier": "R-01-01-000129", "name": "100 Ω 金属膜电阻" },
+    { "identifier": "R-01-02-000130", "name": "10 kΩ 金属膜电阻" },
+    { "identifier": "C-02-11-000131", "name": "贴片电容小盒" },
+    { "identifier": "T-04-00-000132", "name": "精密尖头镊子" },
+    { "identifier": "W-03-08-000133", "name": "红黑硅胶测试线" }
+  ]
+}
