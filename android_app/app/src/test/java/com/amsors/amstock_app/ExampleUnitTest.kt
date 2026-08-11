@@ -1,17 +1,25 @@
 package com.amsors.amstock_app
 
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-import org.junit.Assert.*
-
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
 class ExampleUnitTest {
     @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
+    fun appAndCloudflareAccessUrlsStayInsideWebView() {
+        assertTrue(NavigationPolicy.shouldOpenInsideApp("https://amstock.amsors.top/"))
+        assertTrue(
+            NavigationPolicy.shouldOpenInsideApp(
+                "https://example.cloudflareaccess.com/cdn-cgi/access/login",
+            ),
+        )
+    }
+
+    @Test
+    fun insecureAndLookalikeHostsAreRejected() {
+        assertFalse(NavigationPolicy.shouldOpenInsideApp("http://amstock.amsors.top/"))
+        assertFalse(NavigationPolicy.shouldOpenInsideApp("https://amstock.amsors.top.example.com/"))
+        assertFalse(NavigationPolicy.shouldOpenInsideApp("https://cloudflareaccess.com.example.com/"))
+        assertFalse(NavigationPolicy.shouldOpenInsideApp("javascript:alert(1)"))
     }
 }
