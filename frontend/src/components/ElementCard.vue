@@ -26,18 +26,26 @@ defineEmits<{
         <span class="kind-pill">{{ element.kind === 'container' ? '容器' : '物品' }}</span>
         <span v-if="element.deleted_at" class="deleted-pill">已删除</span>
       </div>
-      <code>{{ element.code }}</code>
-      <p v-if="element.description" class="element-description">{{ element.description }}</p>
+      <code class="element-code">{{ element.code }}</code>
+      <p class="element-description" :class="{ empty: !element.description }" :aria-hidden="!element.description">
+        {{ element.description || '\u00a0' }}
+      </p>
       <p class="meta">
         <span>数量 {{ element.quantity }} {{ element.unit }}</span>
         <span>{{ element.parent_serial == null ? '未放入容器' : `父容器 ${String(element.parent_serial).padStart(6, '0')}` }}</span>
       </p>
-      <button v-if="readonly && path" class="path-button" type="button" @click="$emit('showPath', element)">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v5m0 0H6v5m6-5h6v5M3.5 14h5v5h-5v-5Zm8.5 0h5v5h-5v-5Zm7.5 0h-5v5h5v-5Z" /></svg>
-        查看容器路径
-        <span>{{ Math.max(path.length - 1, 0) }} 层</span>
-      </button>
     </div>
+    <button
+      v-if="readonly && path"
+      class="path-button"
+      type="button"
+      :aria-label="`查看 ${element.name} 的容器路径，共 ${Math.max(path.length - 1, 0)} 层`"
+      @click="$emit('showPath', element)"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v5m0 0H6v5m6-5h6v5M3.5 14h5v5h-5v-5Zm8.5 0h5v5h-5v-5Zm7.5 0h-5v5h5v-5Z" /></svg>
+      路径
+      <span>{{ Math.max(path.length - 1, 0) }} 层</span>
+    </button>
     <div v-if="!readonly" class="card-actions">
       <LabelPrintButtons v-if="!element.deleted_at" :element="element" />
       <div class="management-actions">

@@ -33,8 +33,9 @@ async function print(style: LabelStyle) {
       type="button"
       class="button ghost small print-label-button"
       :disabled="printing !== null"
+      :aria-label="printing === style ? `${style} 标签打印中` : `打印 ${style} 标签`"
       @click.stop="print(style)"
-    >{{ printing === style ? '打印中…' : `打印 ${style}` }}</button>
+    ><span class="print-label-prefix">{{ printing === style ? '打印中' : '打印' }}</span><span>{{ printing === style ? '…' : style }}</span></button>
   </div>
   <ToastNotice :message="toastMessage" />
 </template>
