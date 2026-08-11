@@ -14,6 +14,7 @@ import ToastNotice from './components/ToastNotice.vue'
 
 type Page = 'home' | 'tree' | 'mappings'
 type BatchMode = 'parent' | 'tags'
+const isAndroidApp = /\bAmstockAndroid\//.test(navigator.userAgent)
 const page = ref<Page>('home')
 const checkingSession = ref(true)
 const authenticated = ref(false)
@@ -117,21 +118,33 @@ function selectFromTree(element: StockElement) { page.value = 'home'; query.valu
 <template>
   <div v-if="checkingSession" class="session-loading"><span class="brand-mark">A</span><p>正在检查登录状态…</p></div>
   <LoginView v-else-if="!authenticated" @authenticated="acceptAuthentication" />
-  <div v-else class="app-shell">
+  <div v-else class="app-shell" :class="{ 'android-app-shell': isAndroidApp }">
     <header class="topbar">
       <button class="brand" @click="page = 'home'"><span class="brand-mark">A</span><span><strong>Amstock</strong><small>家用物资管理</small></span></button>
-      <nav aria-label="主要导航">
-        <button :class="{ active: page === 'home' }" @click="page = 'home'">检索与创建</button>
-        <button :class="{ active: page === 'tree' }" @click="page = 'tree'">收纳树</button>
-        <button :class="{ active: page === 'mappings' }" @click="page = 'mappings'">编号映射</button>
-        <button class="logout-button" :title="`当前用户：${currentUsername}`" @click="logout">退出</button>
+      <nav class="primary-nav" aria-label="主要导航">
+        <button :class="{ active: page === 'home' }" :aria-current="page === 'home' ? 'page' : undefined" @click="page = 'home'">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.4-4.4m2.4-5.1a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
+          <span>检索与创建</span>
+        </button>
+        <button :class="{ active: page === 'tree' }" :aria-current="page === 'tree' ? 'page' : undefined" @click="page = 'tree'">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v5m0 0H6v5m6-5h6v5M3.5 14h5v5h-5v-5Zm8.5 0h5v5h-5v-5Zm7.5 0h-5v5h5v-5Z" /></svg>
+          <span>收纳树</span>
+        </button>
+        <button :class="{ active: page === 'mappings' }" :aria-current="page === 'mappings' ? 'page' : undefined" @click="page = 'mappings'">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h11m-3-3 3 3-3 3M16 17H5m3 3-3-3 3-3" /></svg>
+          <span>编号映射</span>
+        </button>
+        <button class="logout-button" :title="`当前用户：${currentUsername}`" @click="logout">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-3m-3-4h10m-3-3 3 3-3 3" /></svg>
+          <span>退出</span>
+        </button>
       </nav>
     </header>
 
     <main>
       <template v-if="page === 'home'">
         <section class="search-panel panel">
-          <label class="search-box"><span>⌕</span><input v-model="query" placeholder="输入名称或编号，例如：电阻、M-03、000042" autofocus /><button v-if="query" aria-label="清空" @click="query = ''">×</button></label>
+          <label class="search-box"><span>⌕</span><input v-model="query" placeholder="输入名称或编号，例如：电阻、M-03、000042" :autofocus="!isAndroidApp" /><button v-if="query" aria-label="清空" @click="query = ''">×</button></label>
           <div class="search-controls"><label class="deleted-toggle"><input v-model="includeDeleted" type="checkbox" />包含已删除条目</label><button class="button primary create-button" @click="createElement"><span>＋</span> 添加物资</button></div>
         </section>
         <section class="results">
