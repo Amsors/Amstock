@@ -147,7 +147,19 @@ npm run dev
 ### 标签打印配置
 
 后端通过 `printer/amstock_printer.py` 的 stdin/stdout JSON 接口调用 Python。Python
-虚拟环境尚未创建时，先按 `printer/README.md` 安装依赖。后端支持以下启动参数：
+虚拟环境尚未创建时，先按 `printer/README.md` 安装依赖。直接 `cargo run` 时默认生成
+PNG 并调用桌面看图程序实时打开；容器镜像强制关闭系统看图程序，适合无头环境。
+
+容器部署主要使用以下环境变量：
+
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `AMSTOCK_PRINTER_ENABLED` | `false` | `true` 连接真实打印机；`false` 仅生成 PNG 预览 |
+| `AMSTOCK_PRINTER_HOST` | `192.168.31.114` | 打印机 IP 或主机名 |
+| `AMSTOCK_PRINTER_PORT` | `9100` | RAW TCP 端口 |
+| `AMSTOCK_PRINTER_TIMEOUT` | `3` | 打印机连接超时秒数 |
+
+非容器启动也可以使用这些环境变量。命令行参数具有更高优先级：
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -170,6 +182,9 @@ BB、CC 和六位序列号依次升序排列；Python 保持传入顺序渲染�
 
 生产部署由一个应用容器和一个 Caddy 容器组成。Caddy 是唯一对公网开放端口的服务，负责 `amstock.amsors.top` 的 HTTPS 和 Vue 静态文件；Rust API 仅在 Compose 内网监听。
 
+- `docker-compose.yaml` 是生产配置，只从 Docker Hub 拉取镜像，服务器不会构建。
+- `docker-compose.dev.yaml` 是本地构建覆盖层，不应单独使用。
+
 Ubuntu 24.04 上准备目录并配置：
 
 ```bash
@@ -179,11 +194,26 @@ chmod 700 backups
 chmod 600 .env
 ```
 
-编辑 `.env`，至少替换 `AMSTOCK_PASSWORD`。域名默认已经是 `amstock.amsors.top`。将域名的 A/AAAA 记录直接指向服务器，并确保防火墙允许 TCP 80、TCP 443 和 UDP 443，然后启动：
+编辑 `.env`，至少替换 `AMSTOCK_PASSWORD`。域名默认已经是 `amstock.amsors.top`。
+如需使用网络打印机，把 `AMSTOCK_PRINTER_ENABLED` 改成 `true`，并填写跳板网络中
+可达的 `AMSTOCK_PRINTER_HOST` 与 `AMSTOCK_PRINTER_PORT`。
+
+将域名的 A/AAAA 记录直接指向服务器，并确保防火墙允许 TCP 80、TCP 443 和 UDP 443，
+然后只拉取并启动 Docker Hub 镜像：
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yaml pull
+docker compose -f docker-compose.yaml up -d
 docker compose ps
+```
+
+升级时重复执行 `pull` 和 `up -d` 即可。若需要回退或固定版本，可在 `.env` 中把
+`AMSTOCK_IMAGE_TAG` 设为 Actions 生成的 `sha-<提交短哈希>` 或版本号（例如 `v1.0.0`）。
+
+本地需要验证 Docker 构建时使用两个 Compose 文件：
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
 ```
 
 如果不希望在 `.env` 中保存明文密码，可以先交互式生成 Argon2id 哈希：
@@ -202,6 +232,27 @@ Caddy 会自动申请并续期 HTTPS 证书。业务数据位于 Docker 命名�
 ```bash
 docker compose logs -f app web
 ```
+
+### GitHub Actions 与 Docker Hub 配置
+
+仓库中的 `.github/workflows/docker-publish.yaml` 会构建 Dockerfile 的 `backend` 和
+`web` 两个目标，并发布到同一个 Docker Hub 仓库 `amsors/amstock`：
+
+- `master` 分支：`backend-latest`、`web-latest`，以及两份 `*-sha-<短哈希>` 镜像。
+- `v*` Git 标签：例如 `backend-v1.0.0`、`web-v1.0.0`。
+- Pull Request：只验证两个镜像能够构建，不登录或推送 Docker Hub。
+
+首次使用前完成以下一次性配置：
+
+1. 在 Docker Hub 的 `amsors` namespace 下创建公开或私有仓库 `amstock`。
+2. 在 Docker Hub 的账户安全设置中创建具有 Read & Write 权限的 Access Token。
+3. 打开 GitHub 仓库的 **Settings → Secrets and variables → Actions → New repository secret**，添加：
+   - `DOCKERHUB_USERNAME`：Docker Hub 用户名（通常为 `amsors`）。
+   - `DOCKERHUB_TOKEN`：上一步生成的 Access Token，不要填写登录密码。
+4. 推送到 `master`，或在 GitHub 的 **Actions → Build and publish Docker images → Run workflow** 手动执行。
+
+Docker Hub 仓库如果设为私有，部署服务器还需要先执行 `docker login`，再运行
+`docker compose pull`。
 
 ### 将当前非容器数据迁入
 

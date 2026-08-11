@@ -2,15 +2,18 @@ name: amstock
 
 services:
   app:
-    build:
-      context: .
-      target: backend
+    image: amsors/amstock:backend-${AMSTOCK_IMAGE_TAG:-latest}
     environment:
       AMSTOCK_USERNAME: ${AMSTOCK_USERNAME:-admin}
       AMSTOCK_PASSWORD: ${AMSTOCK_PASSWORD:-}
       AMSTOCK_PASSWORD_HASH: ${AMSTOCK_PASSWORD_HASH:-}
       AMSTOCK_COOKIE_SECURE: ${AMSTOCK_COOKIE_SECURE:-true}
       AMSTOCK_SESSION_TTL_HOURS: ${AMSTOCK_SESSION_TTL_HOURS:-720}
+      # false 时只生成 PNG 预览；true 时连接下面配置的网络打印机。
+      AMSTOCK_PRINTER_ENABLED: ${AMSTOCK_PRINTER_ENABLED:-false}
+      AMSTOCK_PRINTER_HOST: ${AMSTOCK_PRINTER_HOST:-192.168.31.114}
+      AMSTOCK_PRINTER_PORT: ${AMSTOCK_PRINTER_PORT:-9100}
+      AMSTOCK_PRINTER_TIMEOUT: ${AMSTOCK_PRINTER_TIMEOUT:-3}
     volumes:
       - amstock-data:/data
       - ./backups:/backups
@@ -32,9 +35,7 @@ services:
       - ALL
 
   web:
-    build:
-      context: .
-      target: web
+    image: amsors/amstock:web-${AMSTOCK_IMAGE_TAG:-latest}
     environment:
       AMSTOCK_DOMAIN: ${AMSTOCK_DOMAIN:-amstock.amsors.top}
     ports:

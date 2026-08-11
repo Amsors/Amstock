@@ -57,17 +57,59 @@ impl Args {
            --printer-no-cut                 真实打印后不切纸\n"
     }
 
+    fn env_bool(name: &str, default: bool) -> std::result::Result<bool, String> {
+        let Ok(value) = env::var(name) else {
+            return Ok(default);
+        };
+        match value.trim().to_ascii_lowercase().as_str() {
+            "1" | "true" | "yes" | "on" => Ok(true),
+            "0" | "false" | "no" | "off" => Ok(false),
+            _ => Err(format!(
+                "环境变量 {name} 必须是 true/false、1/0、yes/no 或 on/off"
+            )),
+        }
+    }
+
+    fn env_parse<T>(name: &str, default: T, message: &str) -> std::result::Result<T, String>
+    where
+        T: std::str::FromStr,
+    {
+        match env::var(name) {
+            Ok(value) => value.parse().map_err(|_| message.to_string()),
+            Err(env::VarError::NotPresent) => Ok(default),
+            Err(env::VarError::NotUnicode(_)) => {
+                Err(format!("环境变量 {name} 不是有效的 UTF-8 文本"))
+            }
+        }
+    }
+
     fn parse() -> std::result::Result<Self, String> {
+        let printer_enabled = Self::env_bool("AMSTOCK_PRINTER_ENABLED", false)?;
+        let open_label_preview = Self::env_bool("AMSTOCK_OPEN_LABEL_PREVIEW", true)?;
+        let printer_cut = Self::env_bool("AMSTOCK_PRINTER_CUT", true)?;
         let mut parsed = Self {
-            print_mode: PrintMode::Preview,
-            printer_python: None,
-            printer_script: None,
-            label_preview_dir: None,
-            printer_host: "192.168.31.114".into(),
-            printer_port: 9100,
-            printer_timeout: 3.0,
-            no_open_label_preview: false,
-            printer_no_cut: false,
+            print_mode: if printer_enabled {
+                PrintMode::Printer
+            } else {
+                PrintMode::Preview
+            },
+            printer_python: env::var_os("AMSTOCK_PRINTER_PYTHON").map(PathBuf::from),
+            printer_script: env::var_os("AMSTOCK_PRINTER_SCRIPT").map(PathBuf::from),
+            label_preview_dir: env::var_os("AMSTOCK_LABEL_PREVIEW_DIR").map(PathBuf::from),
+            printer_host: env::var("AMSTOCK_PRINTER_HOST")
+                .unwrap_or_else(|_| "192.168.31.114".into()),
+            printer_port: Self::env_parse(
+                "AMSTOCK_PRINTER_PORT",
+                9100,
+                "环境变量 AMSTOCK_PRINTER_PORT 必须是 1–65535 的整数",
+            )?,
+            printer_timeout: Self::env_parse(
+                "AMSTOCK_PRINTER_TIMEOUT",
+                3.0,
+                "环境变量 AMSTOCK_PRINTER_TIMEOUT 必须是秒数",
+            )?,
+            no_open_label_preview: !open_label_preview,
+            printer_no_cut: !printer_cut,
         };
         let mut arguments = env::args().skip(1);
         while let Some(argument) = arguments.next() {
@@ -110,6 +152,9 @@ impl Args {
         }
         if parsed.printer_port == 0 {
             return Err("--printer-port 必须是 1–65535 的整数".into());
+        }
+        if parsed.printer_host.trim().is_empty() {
+            return Err("打印机地址不能为空".into());
         }
         Ok(parsed)
     }

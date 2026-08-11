@@ -1,0 +1,14 @@
+# 本文件是本地构建覆盖层，应与 docker-compose.yaml 一起使用：
+# docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
+services:
+  app:
+    image: amstock-backend:dev
+    build:
+      context: .
+      target: backend
+
+  web:
+    image: amstock-web:dev
+    build:
+      context: .
+      target: web

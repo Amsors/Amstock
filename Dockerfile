@@ -37,11 +37,15 @@ ENV PATH="/opt/venv/bin:${PATH}" \
     AMSTOCK_DATABASE_URL="sqlite:///data/amstock.db" \
     AMSTOCK_IMAGE_DIR="/data/images" \
     AMSTOCK_BIND="0.0.0.0:3000" \
+    AMSTOCK_PRINTER_PYTHON="/opt/venv/bin/python" \
+    AMSTOCK_PRINTER_SCRIPT="/app/printer/amstock_printer.py" \
+    AMSTOCK_LABEL_PREVIEW_DIR="/data/label-previews" \
+    AMSTOCK_OPEN_LABEL_PREVIEW="false" \
     RUST_LOG="amstock_backend=info,tower_http=info"
 WORKDIR /app
 USER 1000:1000
 EXPOSE 3000
-CMD ["amstock-backend", "--print-mode", "preview", "--printer-python", "/opt/venv/bin/python", "--printer-script", "/app/printer/amstock_printer.py", "--label-preview-dir", "/data/label-previews", "--no-open-label-preview"]
+CMD ["amstock-backend"]
 
 FROM caddy:2.10-alpine AS web
 COPY Caddyfile /etc/caddy/Caddyfile
