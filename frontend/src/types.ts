@@ -26,6 +26,7 @@ export type ElementInput = Pick<
 >
 
 export interface TreeNode extends StockElement { children: TreeNode[] }
+export interface ElementLookup { element: StockElement; path: StockElement[] }
 export interface CategoryMapping { tag_a: string; name: string | null }
 export interface MnemonicMapping { tag_a: string; tag_b: number; name: string | null }
 export interface DeletePreview extends StockElement { depth: number }

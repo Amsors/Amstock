@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::{
     Json, Router,
@@ -23,6 +23,7 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/elements", get(search_elements).post(create_element))
+        .route("/lookup", get(lookup_element))
         .route(
             "/elements/{serial}",
             get(get_element).put(update_element).delete(remove_element),
@@ -164,10 +165,16 @@ async fn search_elements(
     State(state): State<AppState>,
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<Vec<ElementView>>> {
-    let q = query.q.unwrap_or_default().trim().to_string();
+    let rows = find_elements(&state.pool, &query).await?;
+    Ok(Json(rows.into_iter().map(view).collect()))
+}
+
+/// 普通检索和 URL 只读检索共用这一查询入口；后续筛选条件统一在这里扩展。
+async fn find_elements(pool: &sqlx::SqlitePool, query: &SearchQuery) -> Result<Vec<Element>> {
+    let q = query.q.as_deref().unwrap_or_default().trim().to_string();
     let pattern = format!("%{q}%");
     let include_deleted = query.include_deleted.unwrap_or(false);
-    let rows = sqlx::query_as::<_, Element>(
+    Ok(sqlx::query_as::<_, Element>(
         r#"
         SELECT * FROM elements
         WHERE (? OR deleted_at IS NULL)
@@ -181,9 +188,8 @@ async fn search_elements(
     .bind(&pattern)
     .bind(&pattern)
     .bind(&pattern)
-    .fetch_all(&state.pool)
-    .await?;
-    Ok(Json(rows.into_iter().map(view).collect()))
+    .fetch_all(pool)
+    .await?)
 }
 
 async fn get_element(
@@ -191,6 +197,53 @@ async fn get_element(
     Path(serial): Path<i64>,
 ) -> Result<Json<ElementView>> {
     Ok(Json(view(fetch_element(&state.pool, serial).await?)))
+}
+
+async fn lookup_element(
+    State(state): State<AppState>,
+    Query(query): Query<SearchQuery>,
+) -> Result<Json<Vec<ElementLookupView>>> {
+    let matches = find_elements(&state.pool, &query).await?;
+    if matches.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+    let all_elements = sqlx::query_as::<_, Element>("SELECT * FROM elements")
+        .fetch_all(&state.pool)
+        .await?;
+    let by_serial: HashMap<i64, Element> = all_elements
+        .into_iter()
+        .map(|element| (element.serial, element))
+        .collect();
+
+    let mut results = Vec::with_capacity(matches.len());
+    for element in matches {
+        results.push(build_element_lookup(element, &by_serial)?);
+    }
+    Ok(Json(results))
+}
+
+fn build_element_lookup(
+    element: Element,
+    by_serial: &HashMap<i64, Element>,
+) -> Result<ElementLookupView> {
+    let mut path = vec![view(element.clone())];
+    let mut parent_serial = element.parent_serial;
+    let mut visited = HashSet::from([element.serial]);
+    while let Some(parent) = parent_serial {
+        if !visited.insert(parent) {
+            return Err(AppError::Internal("检测到循环的父容器关系".into()));
+        }
+        let parent_element = by_serial
+            .get(&parent)
+            .ok_or_else(|| AppError::Internal("父容器数据不存在".into()))?;
+        parent_serial = parent_element.parent_serial;
+        path.push(view(parent_element.clone()));
+    }
+    path.reverse();
+    Ok(ElementLookupView {
+        element: view(element),
+        path,
+    })
 }
 
 async fn update_element(
@@ -619,4 +672,54 @@ pub async fn get_image(State(state): State<AppState>, Path(serial): Path<i64>) -
         bytes,
     )
         .into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn element(serial: i64, parent_serial: Option<i64>, name: &str) -> Element {
+        Element {
+            serial,
+            kind: if name == "物品" {
+                "item"
+            } else {
+                "container"
+            }
+            .into(),
+            tag_a: "A".into(),
+            tag_b: 0,
+            tag_c: 0,
+            name: name.into(),
+            description: String::new(),
+            quantity: 1.0,
+            unit: String::new(),
+            parent_serial,
+            image_mime: None,
+            created_at: "2026-01-01 00:00:00".into(),
+            updated_at: "2026-01-01 00:00:00".into(),
+            deleted_at: None,
+        }
+    }
+
+    #[test]
+    fn lookup_path_runs_from_outermost_container_to_element() {
+        let outer = element(1, None, "外箱");
+        let inner = element(2, Some(1), "内盒");
+        let item = element(3, Some(2), "物品");
+        let by_serial = [outer, inner, item.clone()]
+            .into_iter()
+            .map(|entry| (entry.serial, entry))
+            .collect();
+
+        let result = build_element_lookup(item, &by_serial).unwrap();
+        assert_eq!(
+            result
+                .path
+                .iter()
+                .map(|entry| entry.element.serial)
+                .collect::<Vec<_>>(),
+            vec![1, 2, 3]
+        );
+    }
 }

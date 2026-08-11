@@ -1,4 +1,4 @@
-import type { CategoryMapping, DeletePreview, ElementInput, LabelStyle, MnemonicMapping, PrintResult, StockElement, TreeNode } from './types'
+import type { CategoryMapping, DeletePreview, ElementInput, ElementLookup, LabelStyle, MnemonicMapping, PrintResult, StockElement, TreeNode } from './types'
 
 async function request<T>(url: string, init?: RequestInit, notifyUnauthorized = true): Promise<T> {
   const response = await fetch(url, { credentials: 'same-origin', ...init })
@@ -26,6 +26,7 @@ export const api = {
     request<{ username: string }>('/api/auth/login', json('POST', { username, password }), false),
   logout: () => request<void>('/api/auth/logout', json('POST'), false),
   search: (q = '', includeDeleted = false) => request<StockElement[]>(`/api/elements?q=${encodeURIComponent(q)}&include_deleted=${includeDeleted}`),
+  lookup: (q = '', includeDeleted = false) => request<ElementLookup[]>(`/api/lookup?q=${encodeURIComponent(q)}&include_deleted=${includeDeleted}`),
   create: (data: ElementInput) => request<StockElement>('/api/elements', json('POST', data)),
   update: (serial: number, data: ElementInput) => request<StockElement>(`/api/elements/${serial}`, json('PUT', data)),
   restore: (serial: number) => request<StockElement>(`/api/elements/${serial}/restore`, json('POST')),

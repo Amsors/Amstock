@@ -1,35 +1,34 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from './api'
+import { useElementSearch } from './composables/useElementSearch'
 import { useToast } from './composables/useToast'
 import type { StockElement } from './types'
 import DeleteDialog from './components/DeleteDialog.vue'
 import BatchEditDialog from './components/BatchEditDialog.vue'
 import ElementCard from './components/ElementCard.vue'
 import ElementForm from './components/ElementForm.vue'
+import ElementSearchControls from './components/ElementSearchControls.vue'
 import MappingManager from './components/MappingManager.vue'
 import LoginView from './components/LoginView.vue'
+import LookupView from './components/LookupView.vue'
 import TreeView from './components/TreeView.vue'
 import ToastNotice from './components/ToastNotice.vue'
 
-type Page = 'home' | 'tree' | 'mappings'
+type Page = 'home' | 'tree' | 'lookup' | 'mappings'
 type BatchMode = 'parent' | 'tags'
 const isAndroidApp = /\bAmstockAndroid\//.test(navigator.userAgent)
-const page = ref<Page>('home')
+const pageFromUrl = (): Page => window.location.pathname.startsWith('/lookup') ? 'lookup' : 'home'
+const page = ref<Page>(pageFromUrl())
 const checkingSession = ref(true)
 const authenticated = ref(false)
 const currentUsername = ref('')
-const query = ref('')
-const includeDeleted = ref(false)
-const elements = ref<StockElement[]>([])
-const loading = ref(false)
-const error = ref('')
+const { query, includeDeleted, elements, loading, error, search } = useElementSearch({ load: api.search })
 const formElement = ref<StockElement | undefined>()
 const formOpen = ref(false)
 const deleting = ref<StockElement | null>(null)
 const selectedSerials = ref<number[]>([])
 const batchMode = ref<BatchMode | null>(null)
-let searchTimer = 0
 let formNeedsRefresh = false
 const { toastMessage, showToast } = useToast()
 const selectedElements = computed(() => {
@@ -51,13 +50,7 @@ function toggleSelection(element: StockElement) {
 
 function clearSelection() { selectedSerials.value = [] }
 
-async function search() {
-  loading.value = true; error.value = ''
-  try { elements.value = await api.search(query.value, includeDeleted.value) }
-  catch (e) { error.value = (e as Error).message }
-  finally { loading.value = false }
-}
-watch([query, includeDeleted], () => { clearSelection(); window.clearTimeout(searchTimer); searchTimer = window.setTimeout(search, 220) })
+watch([query, includeDeleted], clearSelection)
 
 function resetAuthenticatedUi() {
   authenticated.value = false
@@ -71,6 +64,16 @@ function resetAuthenticatedUi() {
 
 function handleUnauthorized() { resetAuthenticatedUi() }
 function handleAppLogout() { void logout() }
+function handlePopState() { page.value = pageFromUrl() }
+
+function navigate(nextPage: Page) {
+  if (nextPage === 'lookup') {
+    if (page.value !== 'lookup') window.history.pushState({}, '', '/lookup')
+  } else if (page.value === 'lookup') {
+    window.history.pushState({}, '', '/')
+  }
+  page.value = nextPage
+}
 
 async function acceptAuthentication(username: string) {
   authenticated.value = true
@@ -85,6 +88,7 @@ async function logout() {
 onMounted(async () => {
   window.addEventListener('amstock:unauthorized', handleUnauthorized)
   window.addEventListener('amstock:logout', handleAppLogout)
+  window.addEventListener('popstate', handlePopState)
   try {
     const session = await api.session()
     await acceptAuthentication(session.username)
@@ -97,6 +101,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('amstock:unauthorized', handleUnauthorized)
   window.removeEventListener('amstock:logout', handleAppLogout)
+  window.removeEventListener('popstate', handlePopState)
 })
 function createElement() { formElement.value = undefined; formNeedsRefresh = false; formOpen.value = true }
 function editElement(element: StockElement) { formElement.value = element; formNeedsRefresh = false; formOpen.value = true }
@@ -117,7 +122,7 @@ function closeBatch() { batchMode.value = null; clearSelection(); void search() 
 async function restore(element: StockElement) {
   try { await api.restore(element.serial); await search() } catch (e) { error.value = (e as Error).message }
 }
-function selectFromTree(element: StockElement) { page.value = 'home'; query.value = element.code; editElement(element) }
+function selectFromTree(element: StockElement) { navigate('home'); query.value = element.code; editElement(element) }
 </script>
 
 <template>
@@ -125,17 +130,21 @@ function selectFromTree(element: StockElement) { page.value = 'home'; query.valu
   <LoginView v-else-if="!authenticated" @authenticated="acceptAuthentication" />
   <div v-else class="app-shell" :class="{ 'android-app-shell': isAndroidApp }">
     <header class="topbar">
-      <button class="brand" @click="page = 'home'"><span class="brand-mark">A</span><span><strong>Amstock</strong><small>家用物资管理</small></span></button>
+      <button class="brand" @click="navigate('home')"><span class="brand-mark">A</span><span><strong>Amstock</strong><small>家用物资管理</small></span></button>
       <nav class="primary-nav" aria-label="主要导航">
-        <button :class="{ active: page === 'home' }" :aria-current="page === 'home' ? 'page' : undefined" @click="page = 'home'">
+        <button :class="{ active: page === 'home' }" :aria-current="page === 'home' ? 'page' : undefined" @click="navigate('home')">
           <span class="nav-icon-wrap"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.4-4.4m2.4-5.1a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg></span>
           <span>检索与创建</span>
         </button>
-        <button :class="{ active: page === 'tree' }" :aria-current="page === 'tree' ? 'page' : undefined" @click="page = 'tree'">
+        <button :class="{ active: page === 'tree' }" :aria-current="page === 'tree' ? 'page' : undefined" @click="navigate('tree')">
           <span class="nav-icon-wrap"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v5m0 0H6v5m6-5h6v5M3.5 14h5v5h-5v-5Zm8.5 0h5v5h-5v-5Zm7.5 0h-5v5h5v-5Z" /></svg></span>
           <span>收纳树</span>
         </button>
-        <button :class="{ active: page === 'mappings' }" :aria-current="page === 'mappings' ? 'page' : undefined" @click="page = 'mappings'">
+        <button :class="{ active: page === 'lookup' }" :aria-current="page === 'lookup' ? 'page' : undefined" @click="navigate('lookup')">
+          <span class="nav-icon-wrap"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h6v6H5V5Zm8 0h6v6h-6V5ZM5 13h6v6H5v-6Zm11 0v6m-3-3h6" /></svg></span>
+          <span>只读查询</span>
+        </button>
+        <button :class="{ active: page === 'mappings' }" :aria-current="page === 'mappings' ? 'page' : undefined" @click="navigate('mappings')">
           <span class="nav-icon-wrap"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h11m-3-3 3 3-3 3M16 17H5m3 3-3-3 3-3" /></svg></span>
           <span>编号映射</span>
         </button>
@@ -148,10 +157,7 @@ function selectFromTree(element: StockElement) { page.value = 'home'; query.valu
 
     <main>
       <template v-if="page === 'home'">
-        <section class="search-panel panel">
-          <label class="search-box"><span>⌕</span><input v-model="query" placeholder="输入名称或编号，例如：电阻、M-03、000042" :autofocus="!isAndroidApp" /><button v-if="query" aria-label="清空" @click="query = ''">×</button></label>
-          <div class="search-controls"><label class="deleted-toggle"><input v-model="includeDeleted" type="checkbox" />包含已删除条目</label><button class="button primary create-button" @click="createElement"><span>＋</span> 添加物资</button></div>
-        </section>
+        <ElementSearchControls v-model:query="query" v-model:include-deleted="includeDeleted" :autofocus="!isAndroidApp" :loading="loading" @create="createElement" />
         <section class="results">
           <div class="results-heading"><h2>{{ query ? '检索结果' : '最近更新' }}</h2><span>{{ elements.length }} 条</span></div>
           <div v-if="selectedElements.length" class="batch-toolbar panel">
@@ -165,7 +171,8 @@ function selectFromTree(element: StockElement) { page.value = 'home'; query.valu
         </section>
       </template>
       <TreeView v-else-if="page === 'tree'" @select="selectFromTree" />
-      <MappingManager v-else />
+      <LookupView v-else-if="page === 'lookup'" />
+      <MappingManager v-else-if="page === 'mappings'" />
     </main>
 
     <ElementForm v-if="formOpen" :element="formElement" @close="closeForm" @saved="saved" @continued="continued" @notice="showToast" />

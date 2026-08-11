@@ -119,6 +119,13 @@ pub struct SearchQuery {
     pub include_deleted: Option<bool>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ElementLookupView {
+    pub element: ElementView,
+    /// 从最外层父容器到当前元素，便于直接渲染面包屑路径。
+    pub path: Vec<ElementView>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct PrintRequest {
     pub style: crate::printing::LabelStyle,

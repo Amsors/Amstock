@@ -2,18 +2,19 @@
 import type { StockElement } from '../types'
 import LabelPrintButtons from './LabelPrintButtons.vue'
 
-defineProps<{ element: StockElement; selectionOrder?: number | null; selectable?: boolean }>()
+defineProps<{ element: StockElement; selectionOrder?: number | null; selectable?: boolean; readonly?: boolean; path?: StockElement[] }>()
 defineEmits<{
   edit: [element: StockElement]
   remove: [element: StockElement]
   restore: [element: StockElement]
   toggleSelection: [element: StockElement]
+  showPath: [element: StockElement]
 }>()
 </script>
 
 <template>
-  <article class="element-card" :class="{ deleted: element.deleted_at, selected: selectionOrder != null }">
-    <label class="selection-control" :class="{ disabled: !selectable }" :title="selectable ? (selectionOrder == null ? '加入批量选择' : `第 ${selectionOrder} 个选中`) : '已删除条目不能批量修改'">
+  <article class="element-card" :class="{ deleted: element.deleted_at, selected: selectionOrder != null, readonly }">
+    <label v-if="!readonly" class="selection-control" :class="{ disabled: !selectable }" :title="selectable ? (selectionOrder == null ? '加入批量选择' : `第 ${selectionOrder} 个选中`) : '已删除条目不能批量修改'">
       <input type="checkbox" :checked="selectionOrder != null" :disabled="!selectable" :aria-label="`选择 ${element.name}`" @change="$emit('toggleSelection', element)" />
       <span class="selection-indicator" aria-hidden="true">{{ selectionOrder ?? '' }}</span>
     </label>
@@ -31,8 +32,13 @@ defineEmits<{
         <span>数量 {{ element.quantity }} {{ element.unit }}</span>
         <span>{{ element.parent_serial == null ? '未放入容器' : `父容器 ${String(element.parent_serial).padStart(6, '0')}` }}</span>
       </p>
+      <button v-if="readonly && path" class="path-button" type="button" @click="$emit('showPath', element)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v5m0 0H6v5m6-5h6v5M3.5 14h5v5h-5v-5Zm8.5 0h5v5h-5v-5Zm7.5 0h-5v5h5v-5Z" /></svg>
+        查看容器路径
+        <span>{{ Math.max(path.length - 1, 0) }} 层</span>
+      </button>
     </div>
-    <div class="card-actions">
+    <div v-if="!readonly" class="card-actions">
       <LabelPrintButtons v-if="!element.deleted_at" :element="element" />
       <div class="management-actions">
         <button v-if="!element.deleted_at" class="button ghost small" @click="$emit('edit', element)">编辑</button>

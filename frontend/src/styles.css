@@ -68,6 +68,7 @@ main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80
 .search-box input { border: 0; box-shadow: none; background: transparent; padding: 13px 0; }
 .search-box button { border: 0; background: transparent; color: #809087; font-size: 20px; }
 .search-controls { flex: none; display: flex; align-items: center; gap: 16px; }
+.search-status { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .deleted-toggle { flex: none; display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; white-space: nowrap; }
 .deleted-toggle input, .confirm-check input, .radio-stack input { width: auto; accent-color: var(--green); }
 .results { margin-top: 24px; }
@@ -78,6 +79,7 @@ main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80
 .element-list { display: grid; gap: 10px; }
 .element-card { min-width: 0; display: grid; grid-template-columns: 34px 72px minmax(0, 1fr) auto; align-items: center; gap: 13px; padding: 13px; background: white; border: 1px solid var(--line); border-radius: 13px; transition: .16s; }
 .element-card:hover { border-color: #c0d1c5; box-shadow: 0 7px 22px rgba(43, 71, 56, .06); }
+.element-card.readonly { grid-template-columns: 72px minmax(0, 1fr); }
 .element-card.selected { border-color: #79a58c; background: #fbfefc; box-shadow: 0 0 0 2px rgba(56, 106, 83, .08); }
 .element-card.deleted { opacity: .72; background: #f8f8f7; }
 .selection-control { position: relative; width: 30px; height: 30px; cursor: pointer; }
@@ -225,6 +227,31 @@ main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80
 .text-button { border: 0; background: transparent; color: var(--green); padding: 5px 4px; font-size: 12px; }
 .danger-text { color: var(--danger); }
 
+.readonly-results .results-heading > div { display: grid; gap: 3px; }
+.readonly-results .results-heading p { margin: 0; color: var(--muted); font-size: 11px; }
+.path-button { width: fit-content; display: inline-flex; align-items: center; gap: 6px; margin-top: 9px; padding: 6px 9px; border: 1px solid #cddbd2; border-radius: 8px; background: #f8fbf9; color: var(--green-dark); font-size: 11px; font-weight: 700; }
+.path-button:hover { border-color: #9fbaa9; background: var(--green-soft); }
+.path-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.path-button span { margin-left: 2px; padding-left: 7px; border-left: 1px solid #cbd8d0; color: var(--muted); font-size: 10px; font-weight: 500; }
+.path-backdrop { overscroll-behavior: contain; }
+.path-modal { width: min(560px, 100%); }
+.path-modal-header { margin-bottom: 14px; }
+.path-modal-header h2 { overflow-wrap: anywhere; }
+.path-summary { margin-bottom: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.containment-chain { max-height: min(52vh, 480px); margin: 0; padding: 2px 4px 4px; overflow-y: auto; overscroll-behavior: contain; list-style: none; }
+.chain-origin { display: flex; align-items: center; min-height: 28px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.chain-origin span { padding: 5px 10px; border-radius: 99px; background: #eef1ef; }
+.chain-step { position: relative; min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 11px; margin-top: 24px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: white; }
+.chain-step.current { border-color: #a9c4b3; background: #f8fcf9; box-shadow: 0 0 0 2px rgba(56, 106, 83, .06); }
+.chain-connector { position: absolute; top: -23px; left: 25px; height: 22px; color: #82978a; font-size: 17px; line-height: 22px; }
+.chain-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 10px; background: var(--green-soft); color: var(--green-dark); font-size: 15px; font-weight: 800; }
+.chain-content { min-width: 0; display: grid; gap: 2px; }
+.chain-content small { color: var(--muted); font-size: 10px; }
+.chain-content strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-content code { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.chain-step > .deleted-pill { align-self: start; margin-top: 2px; }
+.path-dialog-actions { margin-top: 18px; }
+
 @media (max-width: 720px) {
   .toast-notice { top: 112px; right: 16px; }
   .topbar { height: auto; min-height: 64px; padding: 9px 14px 0; display: block; }
@@ -260,6 +287,15 @@ main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80
   .mapping-panel, .tree-panel { padding: 17px 12px; }
   .inline-form { grid-template-columns: 48px minmax(0, 1fr) auto; }
   .mapping-row { grid-template-columns: 34px minmax(70px, 1fr) auto auto; }
+  .element-card.readonly { grid-template-columns: 58px minmax(0, 1fr); }
+  .path-modal { max-height: min(90vh, 720px); padding-bottom: calc(19px + env(safe-area-inset-bottom)); }
+  .path-modal-header { position: sticky; top: -19px; z-index: 2; margin: -19px -16px 14px; padding: 19px 16px 12px; border-bottom: 1px solid #edf0ed; background: white; }
+  .containment-chain { max-height: none; overflow: visible; }
+  .chain-step { grid-template-columns: 38px minmax(0, 1fr) auto; gap: 9px; padding: 10px; }
+  .chain-icon { width: 38px; height: 38px; }
+  .chain-connector { left: 23px; }
+  .path-dialog-actions { position: sticky; bottom: calc(-19px - env(safe-area-inset-bottom)); margin: 18px -16px calc(-19px - env(safe-area-inset-bottom)); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #edf0ed; background: white; }
+  .path-dialog-actions .button { width: 100%; }
 }
 
 /* The Android client already supplies its own branded toolbar. Inside its WebView,
@@ -278,7 +314,7 @@ main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80
   backdrop-filter: blur(16px);
 }
 .android-app-shell .brand { display: none; }
-.android-app-shell .primary-nav { width: 100%; height: 68px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.android-app-shell .primary-nav { width: 100%; height: 68px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
 .android-app-shell .primary-nav button {
   min-width: 0;
   height: 100%;
