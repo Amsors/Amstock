@@ -8,6 +8,9 @@
     <string name="choose_image">拍照或选择图片</string>
     <string name="camera_photo">Amstock 拍摄的照片</string>
     <string name="image_upload_settings">图片上传设置</string>
+    <string name="settings">设置</string>
+    <string name="logout">退出登录</string>
+    <string name="logout_confirmation">确定要退出当前 Amstock 账号吗？</string>
     <string name="image_selection_setting_title">点击“选择图片”时</string>
     <string name="image_selection_camera">直接进入拍照</string>
     <string name="image_selection_files">直接进入文件选择</string>

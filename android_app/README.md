@@ -24,6 +24,45 @@
 
 调试 APK 生成在 `app/build/outputs/apk/debug/app-debug.apk`。
 
+## 本地开发服务器
+
+Debug 构建会以独立的 `Amstock Debug` 应用安装，可以和正式版同时存在。它允许 HTTP，
+并且只会把编译时配置的开发服务器来源保留在 WebView 内；Release 构建仍固定使用
+`https://amstock.amsors.top/`，不允许明文流量。
+
+Android 模拟器默认访问 `http://10.0.2.2:43691/`。先在项目中分别启动后端与前端：
+
+```bash
+cd backend
+AMSTOCK_PASSWORD='替换为至少八位的开发密码' AMSTOCK_COOKIE_SECURE=false cargo run
+
+cd frontend
+npm run dev
+```
+
+然后构建或安装 Debug 应用：
+
+```bash
+cd android_app
+./gradlew installDebug
+```
+
+真机测试时，让手机和电脑处于同一局域网，使用电脑的局域网 IP 覆盖地址：
+
+```bash
+cd android_app
+./gradlew installDebug -PamstockDebugUrl=http://192.168.1.100:43691/
+```
+
+也可以通过环境变量配置：
+
+```bash
+AMSTOCK_DEBUG_URL=http://192.168.1.100:43691/ ./gradlew installDebug
+```
+
+请把示例 IP 替换为电脑的实际局域网 IP，并确保系统防火墙允许手机访问 TCP 43691。
+Vite 会继续把 `/api` 和 `/images` 代理到电脑上的 `127.0.0.1:3000`，因此后端无需暴露到局域网。
+
 ## 发布签名
 
 正式长期安装建议在 Android Studio 使用 **Build > Generate Signed App Bundle or APK > APK** 创建并妥善备份签名密钥。以后只有使用同一个 `applicationId` 和同一把密钥签名，并提高 `versionCode`，才能覆盖安装升级。

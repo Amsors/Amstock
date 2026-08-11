@@ -278,37 +278,37 @@ main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80
   backdrop-filter: blur(16px);
 }
 .android-app-shell .brand { display: none; }
-.android-app-shell .primary-nav { width: 100%; height: 68px; gap: 0; }
+.android-app-shell .primary-nav { width: 100%; height: 68px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
 .android-app-shell .primary-nav button {
   min-width: 0;
+  height: 100%;
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 2px;
   border: 0;
   padding: 6px 2px 4px;
   color: #748078;
   font-size: 11px;
   line-height: 1.1;
+  white-space: nowrap;
+  appearance: none;
   -webkit-tap-highlight-color: transparent;
 }
-.android-app-shell .primary-nav button::before {
-  content: '';
-  position: absolute;
-  top: 5px;
-  width: 42px;
-  height: 28px;
-  z-index: -1;
-  border-radius: 16px;
-  background: transparent;
-}
-.android-app-shell .primary-nav button { position: relative; z-index: 0; }
 .android-app-shell .primary-nav button.active { color: var(--green-dark); font-weight: 700; }
-.android-app-shell .primary-nav button.active::before { background: var(--green-soft); }
 .android-app-shell .primary-nav .logout-button { margin-left: 0; color: #8a6663; }
-.android-app-shell .nav-icon { display: block; }
+.android-app-shell .nav-icon-wrap {
+  width: 48px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+}
+.android-app-shell .primary-nav button.active .nav-icon-wrap { background: var(--green-soft); }
+.android-app-shell .nav-icon { display: block; width: 22px; height: 22px; }
 .android-app-shell main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 .android-app-shell .toast-notice { top: 16px; }
 

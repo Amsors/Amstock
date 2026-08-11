@@ -6,6 +6,11 @@ import org.junit.Test
 
 class ExampleUnitTest {
     @Test
+    fun configuredHomeUrlStaysInsideWebView() {
+        assertTrue(NavigationPolicy.shouldOpenInsideApp(NavigationPolicy.HOME_URL))
+    }
+
+    @Test
     fun appAndCloudflareAccessUrlsStayInsideWebView() {
         assertTrue(NavigationPolicy.shouldOpenInsideApp("https://amstock.amsors.top/"))
         assertTrue(

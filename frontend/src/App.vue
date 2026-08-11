@@ -70,6 +70,7 @@ function resetAuthenticatedUi() {
 }
 
 function handleUnauthorized() { resetAuthenticatedUi() }
+function handleAppLogout() { void logout() }
 
 async function acceptAuthentication(username: string) {
   authenticated.value = true
@@ -83,6 +84,7 @@ async function logout() {
 
 onMounted(async () => {
   window.addEventListener('amstock:unauthorized', handleUnauthorized)
+  window.addEventListener('amstock:logout', handleAppLogout)
   try {
     const session = await api.session()
     await acceptAuthentication(session.username)
@@ -92,7 +94,10 @@ onMounted(async () => {
     checkingSession.value = false
   }
 })
-onBeforeUnmount(() => window.removeEventListener('amstock:unauthorized', handleUnauthorized))
+onBeforeUnmount(() => {
+  window.removeEventListener('amstock:unauthorized', handleUnauthorized)
+  window.removeEventListener('amstock:logout', handleAppLogout)
+})
 function createElement() { formElement.value = undefined; formNeedsRefresh = false; formOpen.value = true }
 function editElement(element: StockElement) { formElement.value = element; formNeedsRefresh = false; formOpen.value = true }
 function continued() { formNeedsRefresh = true }
@@ -123,18 +128,18 @@ function selectFromTree(element: StockElement) { page.value = 'home'; query.valu
       <button class="brand" @click="page = 'home'"><span class="brand-mark">A</span><span><strong>Amstock</strong><small>家用物资管理</small></span></button>
       <nav class="primary-nav" aria-label="主要导航">
         <button :class="{ active: page === 'home' }" :aria-current="page === 'home' ? 'page' : undefined" @click="page = 'home'">
-          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.4-4.4m2.4-5.1a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
+          <span class="nav-icon-wrap"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.4-4.4m2.4-5.1a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg></span>
           <span>检索与创建</span>
         </button>
         <button :class="{ active: page === 'tree' }" :aria-current="page === 'tree' ? 'page' : undefined" @click="page = 'tree'">
-          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v5m0 0H6v5m6-5h6v5M3.5 14h5v5h-5v-5Zm8.5 0h5v5h-5v-5Zm7.5 0h-5v5h5v-5Z" /></svg>
+          <span class="nav-icon-wrap"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v5m0 0H6v5m6-5h6v5M3.5 14h5v5h-5v-5Zm8.5 0h5v5h-5v-5Zm7.5 0h-5v5h5v-5Z" /></svg></span>
           <span>收纳树</span>
         </button>
         <button :class="{ active: page === 'mappings' }" :aria-current="page === 'mappings' ? 'page' : undefined" @click="page = 'mappings'">
-          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h11m-3-3 3 3-3 3M16 17H5m3 3-3-3 3-3" /></svg>
+          <span class="nav-icon-wrap"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h11m-3-3 3 3-3 3M16 17H5m3 3-3-3 3-3" /></svg></span>
           <span>编号映射</span>
         </button>
-        <button class="logout-button" :title="`当前用户：${currentUsername}`" @click="logout">
+        <button v-if="!isAndroidApp" class="logout-button" :title="`当前用户：${currentUsername}`" @click="logout">
           <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-3m-3-4h10m-3-3 3 3-3 3" /></svg>
           <span>退出</span>
         </button>

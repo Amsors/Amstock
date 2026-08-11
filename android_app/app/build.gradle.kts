@@ -2,6 +2,13 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+val debugHomeUrl = providers.gradleProperty("amstockDebugUrl")
+    .orElse(providers.environmentVariable("AMSTOCK_DEBUG_URL"))
+    .orElse("http://10.0.2.2:43691/")
+
+fun buildConfigString(value: String): String =
+    "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
 android {
     namespace = "com.amsors.amstock_app"
     compileSdk {
@@ -25,7 +32,19 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            buildConfigField("String", "HOME_URL", buildConfigString(debugHomeUrl.get()))
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
+            buildConfigField(
+                "String",
+                "HOME_URL",
+                buildConfigString("https://amstock.amsors.top/"),
+            )
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
             optimization {
                 enable = false
             }

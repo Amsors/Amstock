@@ -4,6 +4,6 @@
     <item
         android:id="@+id/action_image_settings"
         android:icon="@drawable/ic_settings_24"
-        android:title="@string/image_upload_settings"
+        android:title="@string/settings"
         app:showAsAction="always" />
 </menu>

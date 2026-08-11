@@ -100,7 +100,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.retry_button).setOnClickListener { loadHomePage() }
         findViewById<MaterialToolbar>(R.id.app_toolbar).setOnMenuItemClickListener { item ->
             if (item.itemId == R.id.action_image_settings) {
-                showImageSelectionSettings()
+                showAppSettings()
                 true
             } else {
                 false
@@ -381,6 +381,37 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun showAppSettings() {
+        val options = arrayOf(
+            getString(R.string.image_upload_settings),
+            getString(R.string.logout),
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.settings)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showImageSelectionSettings()
+                    1 -> confirmLogout()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmLogout() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.logout)
+            .setMessage(R.string.logout_confirmation)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.logout) { _, _ ->
+                webView.evaluateJavascript(
+                    "window.dispatchEvent(new Event('amstock:logout'))",
+                    null,
+                )
+            }
+            .show()
+    }
+
     private fun getImageSelectionMode(): ImageSelectionMode {
         val storedValue = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
             .getString(IMAGE_SELECTION_MODE_KEY, null)
@@ -561,7 +592,8 @@ class MainActivity : AppCompatActivity() {
         val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = manager.activeNetwork ?: return false
         val capabilities = manager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ||
+            (BuildConfig.DEBUG && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
     }
 
     private enum class ImageSelectionMode(val value: String, val labelRes: Int) {
