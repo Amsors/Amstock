@@ -1,0 +1,50 @@
+#!/bin/sh
+set -eu
+
+data_dir=${AMSTOCK_DATA_DIR:-/data}
+database=$data_dir/amstock.db
+if [ ! -f "$database" ]; then
+    echo "没有找到 $database，无法导出。" >&2
+    exit 1
+fi
+
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+destination=${1:-/backups/amstock-$timestamp.tar.gz}
+work_dir=$(mktemp -d /tmp/amstock-export.XXXXXX)
+cleanup() { rm -rf "$work_dir"; }
+trap cleanup EXIT INT TERM
+
+mkdir -p "$(dirname "$destination")"
+sqlite3 "$database" ".backup '$work_dir/amstock.db'"
+integrity=$(sqlite3 "$work_dir/amstock.db" "PRAGMA integrity_check;")
+if [ "$integrity" != "ok" ]; then
+    echo "数据库完整性检查失败：$integrity" >&2
+    exit 1
+fi
+
+mkdir -p "$work_dir/images"
+if [ -d "$data_dir/images" ]; then
+    cp -a "$data_dir/images/." "$work_dir/images/"
+fi
+
+sqlite3 "$work_dir/amstock.db" \
+    "SELECT printf('%06d', serial) FROM elements WHERE image_mime IS NOT NULL ORDER BY serial;" \
+    > "$work_dir/expected-images.txt"
+find "$work_dir/images" -maxdepth 1 -type f -printf '%f\n' \
+    | LC_ALL=C sort > "$work_dir/actual-images.txt"
+if ! cmp -s "$work_dir/expected-images.txt" "$work_dir/actual-images.txt"; then
+    echo "数据库中的图片记录与 images 目录不一致，已取消导出。" >&2
+    exit 1
+fi
+
+element_count=$(sqlite3 "$work_dir/amstock.db" "SELECT count(*) FROM elements;")
+image_count=$(find "$work_dir/images" -maxdepth 1 -type f | wc -l | tr -d ' ')
+{
+    echo "format=amstock-export-v1"
+    echo "created_at=$timestamp"
+    echo "elements=$element_count"
+    echo "images=$image_count"
+} > "$work_dir/manifest.txt"
+
+tar -C "$work_dir" -czf "$destination" manifest.txt amstock.db images
+echo "已导出：$destination（$element_count 条物资，$image_count 个图片文件）"

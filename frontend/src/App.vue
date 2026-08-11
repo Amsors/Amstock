@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from './api'
 import { useToast } from './composables/useToast'
 import type { StockElement } from './types'
@@ -8,12 +8,16 @@ import BatchEditDialog from './components/BatchEditDialog.vue'
 import ElementCard from './components/ElementCard.vue'
 import ElementForm from './components/ElementForm.vue'
 import MappingManager from './components/MappingManager.vue'
+import LoginView from './components/LoginView.vue'
 import TreeView from './components/TreeView.vue'
 import ToastNotice from './components/ToastNotice.vue'
 
 type Page = 'home' | 'tree' | 'mappings'
 type BatchMode = 'parent' | 'tags'
 const page = ref<Page>('home')
+const checkingSession = ref(true)
+const authenticated = ref(false)
+const currentUsername = ref('')
 const query = ref('')
 const includeDeleted = ref(false)
 const elements = ref<StockElement[]>([])
@@ -53,7 +57,41 @@ async function search() {
   finally { loading.value = false }
 }
 watch([query, includeDeleted], () => { clearSelection(); window.clearTimeout(searchTimer); searchTimer = window.setTimeout(search, 220) })
-onMounted(search)
+
+function resetAuthenticatedUi() {
+  authenticated.value = false
+  currentUsername.value = ''
+  elements.value = []
+  formOpen.value = false
+  deleting.value = null
+  batchMode.value = null
+  clearSelection()
+}
+
+function handleUnauthorized() { resetAuthenticatedUi() }
+
+async function acceptAuthentication(username: string) {
+  authenticated.value = true
+  currentUsername.value = username
+  await search()
+}
+
+async function logout() {
+  try { await api.logout() } finally { resetAuthenticatedUi() }
+}
+
+onMounted(async () => {
+  window.addEventListener('amstock:unauthorized', handleUnauthorized)
+  try {
+    const session = await api.session()
+    await acceptAuthentication(session.username)
+  } catch {
+    resetAuthenticatedUi()
+  } finally {
+    checkingSession.value = false
+  }
+})
+onBeforeUnmount(() => window.removeEventListener('amstock:unauthorized', handleUnauthorized))
 function createElement() { formElement.value = undefined; formNeedsRefresh = false; formOpen.value = true }
 function editElement(element: StockElement) { formElement.value = element; formNeedsRefresh = false; formOpen.value = true }
 function continued() { formNeedsRefresh = true }
@@ -77,13 +115,16 @@ function selectFromTree(element: StockElement) { page.value = 'home'; query.valu
 </script>
 
 <template>
-  <div class="app-shell">
+  <div v-if="checkingSession" class="session-loading"><span class="brand-mark">A</span><p>正在检查登录状态…</p></div>
+  <LoginView v-else-if="!authenticated" @authenticated="acceptAuthentication" />
+  <div v-else class="app-shell">
     <header class="topbar">
       <button class="brand" @click="page = 'home'"><span class="brand-mark">A</span><span><strong>Amstock</strong><small>家用物资管理</small></span></button>
       <nav aria-label="主要导航">
         <button :class="{ active: page === 'home' }" @click="page = 'home'">检索与创建</button>
         <button :class="{ active: page === 'tree' }" @click="page = 'tree'">收纳树</button>
         <button :class="{ active: page === 'mappings' }" @click="page = 'mappings'">编号映射</button>
+        <button class="logout-button" :title="`当前用户：${currentUsername}`" @click="logout">退出</button>
       </nav>
     </header>
 

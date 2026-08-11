@@ -13,12 +13,16 @@ pub enum AppError {
     NotFound(String),
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    Unauthorized(String),
     #[error(transparent)]
     Database(#[from] sqlx::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("{0}")]
     Printer(String),
+    #[error("{0}")]
+    Internal(String),
 }
 
 #[derive(Serialize)]
@@ -32,8 +36,10 @@ impl IntoResponse for AppError {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Conflict(_) => StatusCode::CONFLICT,
+            Self::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             Self::Database(_) | Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Printer(_) => StatusCode::BAD_GATEWAY,
+            Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         if status.is_server_error() {
             tracing::error!(error = ?self, "request failed");

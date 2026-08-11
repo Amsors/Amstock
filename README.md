@@ -74,7 +74,7 @@ Amstock/
 │   ├── src/main.rs          # 服务启动与全局配置
 │   ├── src/routes.rs        # API、层级、删除恢复和图片逻辑
 │   ├── src/models.rs        # 请求、响应和数据库模型
-│   ├── src/schema.sql       # SQLite 表结构
+│   ├── migrations/          # SQLx 数据库迁移
 │   └── data/                # 本地数据库与图片（不提交到 Git）
 ├── frontend/
 │   ├── src/App.vue          # 页面入口
@@ -88,7 +88,7 @@ Amstock/
 
 ### 启动项目
 
-需要 Node.js 20+ 与 Rust 1.80+。
+需要 Node.js 20.19+ 与 Rust 1.85+。
 
 首次安装前端依赖：
 
@@ -97,10 +97,12 @@ cd frontend
 npm install
 ```
 
-启动后端（默认使用标签预览模式：生成 PNG 并调用系统看图程序打开）：
+启动后端（开发环境需要设置单用户密码；HTTP 下关闭 Secure Cookie）：
 
 ```bash
 cd backend
+AMSTOCK_PASSWORD='替换为至少八位的开发密码' \
+AMSTOCK_COOKIE_SECURE=false \
 cargo run
 ```
 
@@ -118,7 +120,7 @@ cd frontend
 npm run dev
 ```
 
-默认访问 <http://localhost:5173>。Vite 开发服务器会把 `/api` 和 `/images` 代理到 `http://127.0.0.1:3000`。
+默认访问 <http://localhost:43691>。Vite 开发服务器会把 `/api` 和 `/images` 代理到 `http://127.0.0.1:3000`。
 
 ### 数据与配置
 
@@ -134,6 +136,13 @@ npm run dev
 | `AMSTOCK_DATABASE_URL` | `sqlite://data/amstock.db` | SQLite 连接地址 |
 | `AMSTOCK_IMAGE_DIR` | `data/images` | 图片文件目录 |
 | `AMSTOCK_BIND` | `127.0.0.1:3000` | 后端监听地址 |
+| `AMSTOCK_USERNAME` | `admin` | 唯一允许登录的用户名 |
+| `AMSTOCK_PASSWORD` | 无 | 登录密码，至少 8 个字符 |
+| `AMSTOCK_PASSWORD_HASH` | 无 | Argon2id PHC 哈希；设置后优先于明文密码 |
+| `AMSTOCK_COOKIE_SECURE` | `true` | 是否只通过 HTTPS 发送会话 Cookie；本地 HTTP 开发设为 `false` |
+| `AMSTOCK_SESSION_TTL_HOURS` | `720` | 登录会话有效期（小时） |
+
+服务不提供注册和多用户管理。会话保存在后端内存中，因此后端重启后需要重新登录。
 
 ### 标签打印配置
 
@@ -155,7 +164,89 @@ npm run dev
 B1/B2 使用容器的未删除直接子级。Rust 在调用 Python 前按完整编号的类别字母、
 BB、CC 和六位序列号依次升序排列；Python 保持传入顺序渲染。
 
-项目不包含数据库迁移流程。开发阶段修改表结构后，可以在确认旧数据不再需要时删除 `backend/data/amstock.db`，后端下次启动会按 `backend/src/schema.sql` 创建新数据库。
+数据库结构由 `backend/migrations/` 中的 SQLx 迁移管理。后端启动时自动执行尚未应用的迁移；首次升级已有数据库时，初始迁移会登记现有表而不会清空业务数据。
+
+## Docker 部署
+
+生产部署由一个应用容器和一个 Caddy 容器组成。Caddy 是唯一对公网开放端口的服务，负责 `amstock.amsors.top` 的 HTTPS 和 Vue 静态文件；Rust API 仅在 Compose 内网监听。
+
+Ubuntu 24.04 上准备目录并配置：
+
+```bash
+cp .env.example .env
+mkdir -p backups
+chmod 700 backups
+chmod 600 .env
+```
+
+编辑 `.env`，至少替换 `AMSTOCK_PASSWORD`。域名默认已经是 `amstock.amsors.top`。将域名的 A/AAAA 记录直接指向服务器，并确保防火墙允许 TCP 80、TCP 443 和 UDP 443，然后启动：
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+如果不希望在 `.env` 中保存明文密码，可以先交互式生成 Argon2id 哈希：
+
+```bash
+docker compose run --rm --no-deps web \
+  caddy hash-password --algorithm argon2id
+```
+
+把输出放入单引号包裹的 `AMSTOCK_PASSWORD_HASH`，并清空 `AMSTOCK_PASSWORD`。
+
+Caddy 会自动申请并续期 HTTPS 证书。业务数据位于 Docker 命名卷 `amstock-data`，删除或重建应用容器不会删除该卷。不要运行 `docker compose down -v`，除非明确希望删除业务数据和 Caddy 证书数据。
+
+查看日志：
+
+```bash
+docker compose logs -f app web
+```
+
+### 将当前非容器数据迁入
+
+先停止当前后端的写入，然后在项目根目录将 `backend/data` 打成兼容的导出包：
+
+```bash
+AMSTOCK_DATA_DIR=backend/data ./deploy/amstock-export backups/amstock-initial.tar.gz
+```
+
+首次启动新容器前，或者先执行 `docker compose stop app`，再导入：
+
+```bash
+docker compose run --rm --no-deps app amstock-import /backups/amstock-initial.tar.gz
+docker compose up -d
+```
+
+导入完成后，应用启动时会自动执行数据库迁移。
+
+### 容器数据导出与恢复
+
+为保证 SQLite 与图片目录完全一致，导出和导入时短暂停止应用。导出包保存在宿主机的 `backups/`：
+
+```bash
+docker compose stop app
+docker compose run --rm --no-deps app amstock-export
+docker compose start app
+```
+
+也可以指定文件名：
+
+```bash
+docker compose run --rm --no-deps app \
+  amstock-export /backups/amstock-manual.tar.gz
+```
+
+恢复指定导出包：
+
+```bash
+docker compose stop app
+docker compose run --rm --no-deps app \
+  amstock-import /backups/amstock-manual.tar.gz
+docker compose start app
+```
+
+导入工具会先检查压缩包和 SQLite 完整性，并将导入前的数据自动导出为 `backups/amstock-pre-import-*.tar.gz`。导出包包含数据库和原始图片，不包含可重新生成的标签预览。
 
 ### 构建与测试
 

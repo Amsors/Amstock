@@ -1,9 +1,8 @@
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS app_state (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     next_serial INTEGER NOT NULL CHECK (next_serial BETWEEN 0 AND 1000000)
 );
+
 INSERT OR IGNORE INTO app_state(id, next_serial) VALUES (1, 0);
 
 CREATE TABLE IF NOT EXISTS category_mappings (

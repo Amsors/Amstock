@@ -29,6 +29,19 @@ code { font-family: "SFMono-Regular", Consolas, monospace; color: #416451; lette
 h1, h2, h3, p { margin-top: 0; }
 
 .app-shell { min-height: 100vh; }
+.session-loading { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted); }
+.session-loading p { margin: 0; font-size: 13px; }
+.login-page { min-height: 100vh; width: 100%; display: grid; place-items: center; padding: 24px; }
+.login-card { width: min(390px, 100%); padding: 30px; }
+.login-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+.login-brand strong, .login-brand small { display: block; }
+.login-brand small { margin-top: 2px; color: var(--muted); font-size: 11px; }
+.login-card h1 { margin-bottom: 8px; font-size: 25px; }
+.login-card > p { margin-bottom: 24px; color: var(--muted); font-size: 13px; }
+.login-card form { display: grid; gap: 15px; }
+.login-card form label { display: grid; gap: 7px; color: #53635a; font-size: 12px; font-weight: 650; }
+.login-card form .error-message { margin: 0; }
+.login-card form .button { margin-top: 3px; }
 .topbar {
   height: 72px; padding: 0 max(24px, calc((100vw - 1160px) / 2)); display: flex; align-items: center;
   justify-content: space-between; background: rgba(255,255,255,.92); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20;
@@ -43,6 +56,7 @@ nav { height: 100%; display: flex; gap: 6px; }
 nav button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: #68746e; padding: 0 16px; }
 nav button:hover, nav button.active { color: var(--green-dark); }
 nav button.active { border-bottom-color: var(--green); font-weight: 650; }
+nav .logout-button { margin-left: 8px; color: var(--danger); }
 main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80px; }
 
 .eyebrow { margin-bottom: 8px; color: var(--green); font-size: 12px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
@@ -217,6 +231,7 @@ main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80
   .brand small { display: none; }
   nav { height: 40px; width: 100%; justify-content: space-between; }
   nav button { flex: 1; padding: 0 4px; font-size: 13px; }
+  nav .logout-button { margin-left: 0; flex: .7; }
   main { width: min(100% - 28px, 1160px); padding: 22px 0 60px; }
   .create-button { width: auto; height: auto; padding: 9px 12px; border-radius: 9px; font-size: 12px; }
   .create-button span { font-size: 18px; }

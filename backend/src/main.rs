@@ -1,13 +1,16 @@
+mod auth;
 mod error;
 mod models;
 mod printing;
 mod routes;
 mod validation;
 
+use auth::AuthState;
 use axum::{
     Router,
     http::{HeaderValue, Method},
-    routing::get,
+    middleware,
+    routing::{get, post},
 };
 use printing::{PrintConfig, PrintMode};
 use sqlx::{
@@ -23,6 +26,7 @@ pub struct AppState {
     pool: SqlitePool,
     image_dir: PathBuf,
     print_config: PrintConfig,
+    auth: AuthState,
 }
 
 #[derive(Debug)]
@@ -127,10 +131,10 @@ async fn main() -> anyhow_main::Result<()> {
         env::var("AMSTOCK_DATABASE_URL").unwrap_or_else(|_| "sqlite://data/amstock.db".into());
     let image_dir =
         PathBuf::from(env::var("AMSTOCK_IMAGE_DIR").unwrap_or_else(|_| "data/images".into()));
-    if let Some(path) = database_url.strip_prefix("sqlite://") {
-        if let Some(parent) = std::path::Path::new(path).parent() {
-            tokio::fs::create_dir_all(parent).await?;
-        }
+    if let Some(path) = database_url.strip_prefix("sqlite://")
+        && let Some(parent) = std::path::Path::new(path).parent()
+    {
+        tokio::fs::create_dir_all(parent).await?;
     }
     tokio::fs::create_dir_all(&image_dir).await?;
     let options: SqliteConnectOptions = database_url
@@ -141,9 +145,7 @@ async fn main() -> anyhow_main::Result<()> {
         .max_connections(5)
         .connect_with(options)
         .await?;
-    sqlx::raw_sql(include_str!("schema.sql"))
-        .execute(&pool)
-        .await?;
+    sqlx::migrate!("./migrations").run(&pool).await?;
 
     let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -171,17 +173,31 @@ async fn main() -> anyhow_main::Result<()> {
         pool,
         image_dir,
         print_config,
+        auth: AuthState::from_env()?,
     };
-    let api = routes::router();
+    let protected_api = routes::router()
+        .route("/auth/session", get(auth::session))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_auth,
+        ));
+    let protected_images = Router::new()
+        .route("/images/{serial}", get(routes::get_image))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_auth,
+        ));
     let app = Router::new()
         .route("/api/health", get(|| async { "ok" }))
-        .nest("/api", api)
-        .route("/images/{serial}", get(routes::get_image))
+        .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/logout", post(auth::logout))
+        .nest("/api", protected_api)
+        .merge(protected_images)
         .layer(RequestBodyLimitLayer::new(10 * 1024 * 1024))
         .layer(TraceLayer::new_for_http())
         .layer(
             CorsLayer::new()
-                .allow_origin(HeaderValue::from_static("http://localhost:5173"))
+                .allow_origin(HeaderValue::from_static("http://localhost:43691"))
                 .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
                 .allow_headers(tower_http::cors::Any),
         )

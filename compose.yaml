@@ -1,0 +1,55 @@
+name: amstock
+
+services:
+  app:
+    build:
+      context: .
+      target: backend
+    environment:
+      AMSTOCK_USERNAME: ${AMSTOCK_USERNAME:-admin}
+      AMSTOCK_PASSWORD: ${AMSTOCK_PASSWORD:-}
+      AMSTOCK_PASSWORD_HASH: ${AMSTOCK_PASSWORD_HASH:-}
+      AMSTOCK_COOKIE_SECURE: ${AMSTOCK_COOKIE_SECURE:-true}
+      AMSTOCK_SESSION_TTL_HOURS: ${AMSTOCK_SESSION_TTL_HOURS:-720}
+    volumes:
+      - amstock-data:/data
+      - ./backups:/backups
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/api/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  web:
+    build:
+      context: .
+      target: web
+    environment:
+      AMSTOCK_DOMAIN: ${AMSTOCK_DOMAIN:-amstock.amsors.top}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  amstock-data:
+  caddy-data:
+  caddy-config:

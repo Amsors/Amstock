@@ -1,0 +1,17 @@
+{$AMSTOCK_DOMAIN:amstock.amsors.top} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy app:3000
+	}
+
+	handle /images/* {
+		reverse_proxy app:3000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

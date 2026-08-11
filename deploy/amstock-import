@@ -1,0 +1,62 @@
+#!/bin/sh
+set -eu
+
+archive=${1:-}
+if [ -z "$archive" ] || [ ! -f "$archive" ]; then
+    echo "用法：amstock-import /backups/amstock-YYYYMMDDTHHMMSSZ.tar.gz" >&2
+    exit 1
+fi
+
+if tar -tzf "$archive" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+    echo "导入包包含不安全的文件路径。" >&2
+    exit 1
+fi
+
+work_dir=$(mktemp -d /tmp/amstock-import.XXXXXX)
+cleanup() { rm -rf "$work_dir"; }
+trap cleanup EXIT INT TERM
+tar -C "$work_dir" -xzf "$archive"
+
+if [ ! -f "$work_dir/manifest.txt" ] || ! grep -qx 'format=amstock-export-v1' "$work_dir/manifest.txt"; then
+    echo "不是受支持的 Amstock 导出包。" >&2
+    exit 1
+fi
+if [ ! -f "$work_dir/amstock.db" ]; then
+    echo "导入包缺少 amstock.db。" >&2
+    exit 1
+fi
+
+integrity=$(sqlite3 "$work_dir/amstock.db" "PRAGMA integrity_check;")
+if [ "$integrity" != "ok" ]; then
+    echo "导入数据库完整性检查失败：$integrity" >&2
+    exit 1
+fi
+
+mkdir -p "$work_dir/images"
+sqlite3 "$work_dir/amstock.db" \
+    "SELECT printf('%06d', serial) FROM elements WHERE image_mime IS NOT NULL ORDER BY serial;" \
+    > "$work_dir/expected-images.txt"
+find "$work_dir/images" -maxdepth 1 -type f -printf '%f\n' \
+    | LC_ALL=C sort > "$work_dir/actual-images.txt"
+if ! cmp -s "$work_dir/expected-images.txt" "$work_dir/actual-images.txt"; then
+    echo "导入包中的图片与数据库记录不一致。" >&2
+    exit 1
+fi
+
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+if [ -f /data/amstock.db ]; then
+    amstock-export "/backups/amstock-pre-import-$timestamp.tar.gz"
+fi
+
+rm -f /data/amstock.db /data/amstock.db-shm /data/amstock.db-wal
+rm -rf /data/images
+cp "$work_dir/amstock.db" /data/amstock.db
+mkdir -p /data/images
+if [ -d "$work_dir/images" ]; then
+    cp -a "$work_dir/images/." /data/images/
+fi
+
+element_count=$(sqlite3 /data/amstock.db "SELECT count(*) FROM elements;")
+image_count=$(find /data/images -maxdepth 1 -type f | wc -l | tr -d ' ')
+echo "导入完成：$element_count 条物资，$image_count 个图片文件。"
+echo "启动应用时会自动执行尚未应用的数据库迁移。"

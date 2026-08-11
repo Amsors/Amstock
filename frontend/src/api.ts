@@ -1,8 +1,11 @@
 import type { CategoryMapping, DeletePreview, ElementInput, LabelStyle, MnemonicMapping, PrintResult, StockElement, TreeNode } from './types'
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init)
+async function request<T>(url: string, init?: RequestInit, notifyUnauthorized = true): Promise<T> {
+  const response = await fetch(url, { credentials: 'same-origin', ...init })
   if (!response.ok) {
+    if (response.status === 401 && notifyUnauthorized) {
+      window.dispatchEvent(new Event('amstock:unauthorized'))
+    }
     let message = `请求失败 (${response.status})`
     try { message = (await response.json()).error || message } catch { /* 非 JSON 错误 */ }
     throw new Error(message)
@@ -18,6 +21,10 @@ const json = (method: string, body?: unknown): RequestInit => ({
 })
 
 export const api = {
+  session: () => request<{ username: string }>('/api/auth/session', undefined, false),
+  login: (username: string, password: string) =>
+    request<{ username: string }>('/api/auth/login', json('POST', { username, password }), false),
+  logout: () => request<void>('/api/auth/logout', json('POST'), false),
   search: (q = '', includeDeleted = false) => request<StockElement[]>(`/api/elements?q=${encodeURIComponent(q)}&include_deleted=${includeDeleted}`),
   create: (data: ElementInput) => request<StockElement>('/api/elements', json('POST', data)),
   update: (serial: number, data: ElementInput) => request<StockElement>(`/api/elements/${serial}`, json('PUT', data)),
