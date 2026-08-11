@@ -39,6 +39,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.exifinterface.media.ExifInterface
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.concurrent.Executors
@@ -55,6 +57,12 @@ class MainActivity : AppCompatActivity() {
     private var pendingCameraFile: File? = null
     private var pendingCameraUri: Uri? = null
     private val imageExecutor = Executors.newSingleThreadExecutor()
+    private val barcodeScanner by lazy {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .enableAutoZoom()
+            .build()
+        GmsBarcodeScanning.getClient(this, options)
+    }
 
     private val fileChooserLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -99,11 +107,18 @@ class MainActivity : AppCompatActivity() {
         photoProcessingPanel = findViewById(R.id.photo_processing_panel)
         findViewById<Button>(R.id.retry_button).setOnClickListener { loadHomePage() }
         findViewById<MaterialToolbar>(R.id.app_toolbar).setOnMenuItemClickListener { item ->
-            if (item.itemId == R.id.action_image_settings) {
-                showAppSettings()
-                true
-            } else {
-                false
+            when (item.itemId) {
+                R.id.action_scan -> {
+                    startBarcodeScan()
+                    true
+                }
+
+                R.id.action_image_settings -> {
+                    showAppSettings()
+                    true
+                }
+
+                else -> false
             }
         }
 
@@ -254,6 +269,25 @@ class MainActivity : AppCompatActivity() {
             return
         }
         webView.loadUrl(NavigationPolicy.HOME_URL)
+    }
+
+    private fun startBarcodeScan() {
+        barcodeScanner.startScan()
+            .addOnSuccessListener { barcode -> openScannedItem(barcode.rawValue) }
+            .addOnCanceledListener { /* Returning without a scan needs no feedback. */ }
+            .addOnFailureListener {
+                Toast.makeText(this, R.string.scanner_unavailable, Toast.LENGTH_LONG).show()
+            }
+    }
+
+    private fun openScannedItem(rawValue: String?) {
+        val code = NavigationPolicy.normalizeItemCode(rawValue)
+        if (code == null) {
+            Toast.makeText(this, R.string.invalid_item_code, Toast.LENGTH_SHORT).show()
+            return
+        }
+        errorPanel.visibility = View.GONE
+        webView.loadUrl(NavigationPolicy.displayUrlForCode(code))
     }
 
     private fun showLoadError(detail: String?) {

@@ -8,6 +8,17 @@ object NavigationPolicy {
     private const val APP_HOST = "amstock.amsors.top"
     private const val CLOUDFLARE_ACCESS_HOST = "cloudflareaccess.com"
     private val configuredHome = parse(HOME_URL)
+    private val itemCodePattern = Regex("^[A-Z]-[0-9]{2}-[0-9]{2}-[0-9]{6}$")
+
+    fun normalizeItemCode(rawValue: String?): String? {
+        val candidate = rawValue?.trim()?.uppercase() ?: return null
+        return candidate.takeIf(itemCodePattern::matches)
+    }
+
+    fun displayUrlForCode(code: String): String =
+        requireNotNull(configuredHome) { "HOME_URL must be a valid absolute URL" }
+            .resolve("/display/$code")
+            .toString()
 
     fun shouldOpenInsideApp(rawUrl: String): Boolean {
         if (rawUrl == "about:blank") return true

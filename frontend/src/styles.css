@@ -29,8 +29,6 @@ code { font-family: "SFMono-Regular", Consolas, monospace; color: #416451; lette
 h1, h2, h3, p { margin-top: 0; }
 
 .app-shell { min-height: 100vh; }
-.session-loading { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted); }
-.session-loading p { margin: 0; font-size: 13px; }
 .login-page { min-height: 100vh; width: 100%; display: grid; place-items: center; padding: 24px; }
 .login-card { width: min(390px, 100%); padding: 30px; }
 .login-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
@@ -249,6 +247,65 @@ main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80
 .chain-step > .deleted-pill { align-self: start; margin-top: 2px; }
 .path-dialog-actions { margin-top: 18px; }
 
+/* Scanner-facing item display. It intentionally has no site chrome or controls. */
+.display-page {
+  width: 100%; min-height: 100vh; margin: 0; padding: clamp(16px, 2.4vw, 36px);
+  display: grid; place-items: center; background:
+    radial-gradient(circle at 8% 6%, rgba(100, 151, 121, .13), transparent 29%),
+    linear-gradient(145deg, #eef3ef 0%, #f7f7f4 52%, #edf1ee 100%);
+}
+.display-status {
+  min-width: min(420px, calc(100vw - 32px)); padding: 30px; border: 1px solid var(--line);
+  border-radius: 18px; background: white; box-shadow: var(--shadow); color: var(--muted); text-align: center;
+}
+.display-status.display-error { display: grid; justify-items: center; gap: 10px; color: var(--danger); }
+.display-error > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: #f8e7e5; font-size: 24px; font-weight: 800; }
+.display-error code { font-size: 13px; }
+.display-sheet {
+  width: min(1480px, 100%); min-height: min(860px, calc(100vh - clamp(32px, 4.8vw, 72px)));
+  overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  border: 1px solid rgba(198, 208, 201, .9); border-radius: clamp(18px, 2vw, 28px);
+  background: rgba(255, 255, 255, .96); box-shadow: 0 28px 80px rgba(31, 54, 42, .12);
+}
+.display-sheet.deleted { filter: saturate(.8); }
+.display-header {
+  min-width: 0; display: flex; align-items: end; justify-content: space-between; gap: 24px;
+  padding: clamp(22px, 3vw, 42px) clamp(22px, 3.6vw, 54px) clamp(18px, 2.3vw, 32px);
+  border-bottom: 1px solid #e7ece8;
+}
+.display-title { min-width: 0; }
+.display-badges { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.display-kind { padding: 4px 9px; border-radius: 99px; background: var(--green-soft); color: var(--green-dark); font-size: 12px; font-weight: 750; }
+.display-title h1 { margin: 0 0 7px; overflow-wrap: anywhere; color: #1f3027; font-size: clamp(34px, 4.3vw, 70px); font-weight: 760; letter-spacing: -.035em; line-height: 1.04; }
+.display-title > code { font-size: clamp(16px, 1.65vw, 25px); font-weight: 700; letter-spacing: .07em; }
+.display-quantity { flex: none; min-width: 150px; display: flex; align-items: baseline; justify-content: end; gap: 9px; color: var(--green-dark); }
+.display-quantity strong { font-size: clamp(38px, 4.8vw, 72px); font-variant-numeric: tabular-nums; line-height: .9; }
+.display-quantity span { color: var(--muted); font-size: clamp(15px, 1.5vw, 22px); font-weight: 650; }
+.display-content { min-height: 0; display: grid; grid-template-columns: minmax(300px, .86fr) minmax(440px, 1.14fr); }
+.display-visual { min-height: 330px; padding: clamp(22px, 3.2vw, 48px); display: grid; place-items: center; background: #f2f6f3; }
+.display-visual img { width: 100%; height: 100%; max-height: 480px; object-fit: contain; border-radius: 16px; }
+.display-image-placeholder { width: min(55%, 260px); aspect-ratio: 1; display: grid; place-items: center; border: 2px dashed #b9cbbf; border-radius: 24%; background: rgba(255, 255, 255, .7); color: #80a08c; font-size: clamp(54px, 8vw, 108px); font-weight: 800; }
+.display-details { min-width: 0; padding: clamp(22px, 3.2vw, 48px); align-content: start; display: grid; gap: clamp(20px, 2.3vw, 34px); }
+.display-description { min-height: 3.2em; margin: 0; color: #38483f; font-size: clamp(16px, 1.45vw, 22px); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.display-description.empty { color: #b0bab4; }
+.display-field-grid { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #e5eae6; border-left: 1px solid #e5eae6; }
+.display-field-grid > div { min-width: 0; padding: clamp(11px, 1.3vw, 18px); border-right: 1px solid #e5eae6; border-bottom: 1px solid #e5eae6; }
+.display-field-grid dt { margin-bottom: 5px; color: #7a877f; font-size: clamp(10px, .82vw, 12px); font-weight: 650; }
+.display-field-grid dd { margin: 0; overflow-wrap: anywhere; color: #293a31; font-size: clamp(13px, 1vw, 15px); font-weight: 700; font-variant-numeric: tabular-nums; }
+.display-path {
+  min-width: 0; padding: clamp(15px, 1.8vw, 24px) clamp(22px, 3.6vw, 54px);
+  display: flex; align-items: center; gap: 11px; overflow-x: auto; border-top: 1px solid #e0e7e2; background: #f8faf8;
+}
+.display-path-origin { flex: none; padding: 6px 10px; border-radius: 99px; background: #e8ece9; color: #68766e; font-size: 11px; font-weight: 750; }
+.display-path-arrow { flex: none; color: #8ca093; font-size: 27px; font-weight: 300; }
+.display-path-node { flex: none; max-width: 280px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 8px 11px; border: 1px solid #d7e1da; border-radius: 11px; background: white; }
+.display-path-node.current { border-color: #8cad98; background: #edf5f0; }
+.display-path-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: var(--green-soft); color: var(--green-dark); font-size: 12px; font-weight: 800; }
+.display-path-node > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+.display-path-node strong, .display-path-node code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.display-path-node strong { font-size: 12px; }
+.display-path-node code { font-size: 10px; }
+
 @media (max-width: 720px) {
   .toast-notice { top: 112px; right: 16px; }
   .topbar { height: auto; min-height: 64px; padding: 9px 14px 0; display: block; }
@@ -310,6 +367,34 @@ main { width: min(1160px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 80
   .chain-connector { left: 23px; }
   .path-dialog-actions { position: sticky; bottom: calc(-19px - env(safe-area-inset-bottom)); margin: 18px -16px calc(-19px - env(safe-area-inset-bottom)); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #edf0ed; background: white; }
   .path-dialog-actions .button { width: 100%; }
+  .display-page { display: block; min-height: 100dvh; padding: 0; background: white; }
+  .display-sheet { width: 100%; min-height: 100dvh; display: block; border: 0; border-radius: 0; box-shadow: none; }
+  .display-header { align-items: start; padding: 22px 18px 19px; }
+  .display-title h1 { font-size: clamp(30px, 10vw, 44px); }
+  .display-title > code { font-size: 14px; letter-spacing: .035em; }
+  .display-quantity { min-width: 0; display: grid; justify-items: end; gap: 2px; }
+  .display-quantity strong { font-size: 34px; }
+  .display-quantity span { font-size: 12px; }
+  .display-content { display: block; }
+  .display-visual {
+    position: relative; min-height: 0; height: 300px; height: clamp(250px, 68vw, 340px);
+    padding: 16px 18px; overflow: hidden;
+  }
+  .display-visual img {
+    position: absolute; inset: 16px 18px; width: calc(100% - 36px); height: calc(100% - 32px);
+    max-height: none; display: block; object-fit: cover;
+  }
+  .display-image-placeholder { width: min(38vw, 150px); }
+  .display-details { position: relative; z-index: 1; padding: 22px 18px; gap: 22px; background: white; }
+  .display-description { min-height: 0; font-size: 15px; }
+  .display-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .display-field-grid > div { padding: 11px 10px; }
+  .display-field-grid dt { font-size: 10px; }
+  .display-field-grid dd { font-size: 12px; }
+  .display-path { position: relative; z-index: 1; padding: 20px 18px calc(24px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 7px 10px; overflow: visible; }
+  .display-path-origin { justify-self: start; grid-column: 1 / -1; }
+  .display-path-arrow { width: 28px; height: 20px; display: grid; place-items: center; transform: rotate(90deg); font-size: 24px; }
+  .display-path-node { width: 100%; max-width: none; grid-column: 2; }
 }
 
 /* The Android client already supplies its own branded toolbar. Inside its WebView,

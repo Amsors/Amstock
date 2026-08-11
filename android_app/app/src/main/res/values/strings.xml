@@ -9,6 +9,9 @@
     <string name="camera_photo">Amstock 拍摄的照片</string>
     <string name="image_upload_settings">图片上传设置</string>
     <string name="settings">设置</string>
+    <string name="scan_item">扫码</string>
+    <string name="invalid_item_code">未识别到有效的 Amstock 编号</string>
+    <string name="scanner_unavailable">无法启动系统扫码功能，请确认 Google Play 服务可用后重试</string>
     <string name="logout">退出登录</string>
     <string name="logout_confirmation">确定要退出当前 Amstock 账号吗？</string>
     <string name="image_selection_setting_title">点击“选择图片”时</string>

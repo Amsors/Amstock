@@ -9,20 +9,34 @@ import BatchEditDialog from './components/BatchEditDialog.vue'
 import ElementCard from './components/ElementCard.vue'
 import ElementForm from './components/ElementForm.vue'
 import ElementSearchControls from './components/ElementSearchControls.vue'
+import ElementDisplayView from './components/ElementDisplayView.vue'
 import MappingManager from './components/MappingManager.vue'
 import LoginView from './components/LoginView.vue'
 import LookupView from './components/LookupView.vue'
 import TreeView from './components/TreeView.vue'
 import ToastNotice from './components/ToastNotice.vue'
 
-type Page = 'home' | 'tree' | 'lookup' | 'mappings'
+type Page = 'home' | 'tree' | 'lookup' | 'mappings' | 'display'
 type BatchMode = 'parent' | 'tags'
 const isAndroidApp = /\bAmstockAndroid\//.test(navigator.userAgent)
-const pageFromUrl = (): Page => window.location.pathname.startsWith('/lookup') ? 'lookup' : 'home'
+const sessionUsernameKey = 'amstock:session-username'
+const cachedUsername = localStorage.getItem(sessionUsernameKey) ?? ''
+const pageFromUrl = (): Page => window.location.pathname.startsWith('/display/')
+  ? 'display'
+  : window.location.pathname.startsWith('/lookup') ? 'lookup' : 'home'
 const page = ref<Page>(pageFromUrl())
-const checkingSession = ref(true)
-const authenticated = ref(false)
-const currentUsername = ref('')
+const displayIdentifier = ref('')
+
+function syncPageFromUrl() {
+  page.value = pageFromUrl()
+  if (page.value === 'display') {
+    try { displayIdentifier.value = decodeURIComponent(window.location.pathname.slice('/display/'.length)) }
+    catch { displayIdentifier.value = '' }
+  }
+}
+syncPageFromUrl()
+const authenticated = ref(!!cachedUsername)
+const currentUsername = ref(cachedUsername)
 const { query, includeDeleted, elements, loading, error, search } = useElementSearch({ load: api.search })
 const formElement = ref<StockElement | undefined>()
 const formOpen = ref(false)
@@ -53,6 +67,7 @@ function clearSelection() { selectedSerials.value = [] }
 watch([query, includeDeleted], clearSelection)
 
 function resetAuthenticatedUi() {
+  localStorage.removeItem(sessionUsernameKey)
   authenticated.value = false
   currentUsername.value = ''
   elements.value = []
@@ -64,7 +79,7 @@ function resetAuthenticatedUi() {
 
 function handleUnauthorized() { resetAuthenticatedUi() }
 function handleAppLogout() { void logout() }
-function handlePopState() { page.value = pageFromUrl() }
+function handlePopState() { syncPageFromUrl() }
 
 function navigate(nextPage: Page) {
   if (nextPage === 'lookup') {
@@ -76,9 +91,10 @@ function navigate(nextPage: Page) {
 }
 
 async function acceptAuthentication(username: string) {
+  localStorage.setItem(sessionUsernameKey, username)
   authenticated.value = true
   currentUsername.value = username
-  await search()
+  if (page.value !== 'display') await search()
 }
 
 async function logout() {
@@ -94,8 +110,6 @@ onMounted(async () => {
     await acceptAuthentication(session.username)
   } catch {
     resetAuthenticatedUi()
-  } finally {
-    checkingSession.value = false
   }
 })
 onBeforeUnmount(() => {
@@ -126,8 +140,8 @@ function selectFromTree(element: StockElement) { navigate('home'); query.value =
 </script>
 
 <template>
-  <div v-if="checkingSession" class="session-loading"><span class="brand-mark">A</span><p>正在检查登录状态…</p></div>
-  <LoginView v-else-if="!authenticated" @authenticated="acceptAuthentication" />
+  <LoginView v-if="!authenticated" @authenticated="acceptAuthentication" />
+  <ElementDisplayView v-else-if="page === 'display'" :identifier="displayIdentifier" />
   <div v-else class="app-shell" :class="{ 'android-app-shell': isAndroidApp }">
     <header class="topbar">
       <button class="brand" @click="navigate('home')"><span class="brand-mark">A</span><span><strong>Amstock</strong><small>家用物资管理</small></span></button>
