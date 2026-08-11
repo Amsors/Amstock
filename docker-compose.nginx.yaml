@@ -1,0 +1,10 @@
+# 在宿主机已有 Nginx 时，与 docker-compose.yaml 一起使用：
+# docker compose -f docker-compose.yaml -f docker-compose.nginx.yaml up -d
+services:
+  web:
+    # TLS 和公网入口由宿主机 Nginx 负责；容器内 Caddy 只提供 HTTP。
+    environment:
+      AMSTOCK_DOMAIN: ":80"
+    # 覆盖生产配置中的 80/443 映射，只允许宿主机本地 Nginx 访问。
+    ports: !override
+      - "127.0.0.1:${AMSTOCK_NGINX_UPSTREAM_PORT:-8080}:80"

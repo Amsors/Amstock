@@ -227,6 +227,45 @@ docker compose run --rm --no-deps web \
 
 Caddy 会自动申请并续期 HTTPS 证书。业务数据位于 Docker 命名卷 `amstock-data`，删除或重建应用容器不会删除该卷。不要运行 `docker compose down -v`，除非明确希望删除业务数据和 Caddy 证书数据。
 
+### 与宿主机 Nginx 共用服务器
+
+如果服务器上的 Nginx 还承载其他业务，不要让容器绑定公网的 80/443 端口。
+使用 Nginx 覆盖配置后，容器内 Caddy 只监听纯 HTTP，并且只映射到宿主机回环地址
+`127.0.0.1:8080`：
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.nginx.yaml pull
+docker compose -f docker-compose.yaml -f docker-compose.nginx.yaml up -d
+docker compose -f docker-compose.yaml -f docker-compose.nginx.yaml ps
+```
+
+如需换一个未占用的回环端口，在 `.env` 中修改
+`AMSTOCK_NGINX_UPSTREAM_PORT`。之后在宿主机 Nginx 对应域名的 HTTPS
+`server` 块中加入：
+
+```nginx
+client_max_body_size 10m;
+
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+域名证书、HTTP 到 HTTPS 跳转仍由宿主机 Nginx 管理。修改后先验证再平滑重载：
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+使用这种部署方式时，后续每次 `pull`、`up`、`down` 或 `logs` 都应同时传入这两个
+Compose 文件；不要只运行基础 `docker-compose.yaml`，否则会重新尝试占用 80/443。
+
 查看日志：
 
 ```bash
